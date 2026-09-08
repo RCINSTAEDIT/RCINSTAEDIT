@@ -1,0 +1,211 @@
+name: Build RCINSTAEDIT APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Create Android project
+        run: |
+          mkdir -p app/src/main/java/com/rcinstaedit
+          mkdir -p app/src/main/res/values
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name='RCINSTAEDIT'
+          include ':app'
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          android.useAndroidX=true
+          org.gradle.jvmargs=-Xmx2g
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.rcinstaedit'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.rcinstaedit'
+                  minSdk 26
+                  targetSdk 35
+                  versionCode 1
+                  versionName '1.0'
+              }
+          }
+          EOF
+
+          cat > app/src/main/res/values/themes.xml <<'EOF'
+          <resources>
+              <style name="AppTheme"
+                  parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:statusBarColor">#070812</item>
+                  <item name="android:navigationBarColor">#070812</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:theme="@style/AppTheme"
+                  android:label="RCINSTAEDIT">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="true">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/rcinstaedit/MainActivity.java <<'EOF'
+          package com.rcinstaedit;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.graphics.Color;
+          import android.content.Intent;
+          import android.view.Gravity;
+          import android.widget.*;
+
+          public class MainActivity extends Activity {
+
+              LinearLayout root;
+              int bg = Color.rgb(7,8,18);
+
+              TextView text(String s, int size) {
+                  TextView t = new TextView(this);
+                  t.setText(s);
+                  t.setTextColor(Color.WHITE);
+                  t.setTextSize(size);
+                  t.setPadding(24,18,24,18);
+                  return t;
+              }
+
+              Button button(String s) {
+                  Button b = new Button(this);
+                  b.setText(s);
+                  b.setTextColor(Color.WHITE);
+                  b.setAllCaps(false);
+                  return b;
+              }
+
+              @Override
+              public void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  home();
+              }
+
+              void home() {
+                  root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setBackgroundColor(bg);
+
+                  root.addView(text("RCINSTAEDIT", 28));
+                  root.addView(text(
+                      "Edit • Create • Inspire\\n\\nProfessional Photo & Reel Editor",
+                      17));
+
+                  Button photo = button("🖼  PHOTO EDITOR");
+                  Button video = button("🎬  VIDEO EDITOR");
+                  Button effects = button("✨  EFFECTS");
+                  Button transitions = button("◈  TRANSITIONS");
+                  Button audio = button("🎵  ADD AUDIO FROM PHONE");
+                  Button export = button("⚡  HIGH QUALITY EXPORT");
+
+                  root.addView(photo);
+                  root.addView(video);
+                  root.addView(effects);
+                  root.addView(transitions);
+                  root.addView(audio);
+                  root.addView(export);
+
+                  photo.setOnClickListener(v ->
+                      Toast.makeText(this,"Photo Editor",Toast.LENGTH_SHORT).show());
+
+                  video.setOnClickListener(v ->
+                      Toast.makeText(this,"Video Editor",Toast.LENGTH_SHORT).show());
+
+                  effects.setOnClickListener(v ->
+                      Toast.makeText(this,"Effects",Toast.LENGTH_SHORT).show());
+
+                  transitions.setOnClickListener(v ->
+                      Toast.makeText(this,"Transitions",Toast.LENGTH_SHORT).show());
+
+                  audio.setOnClickListener(v -> {
+                      Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                      i.setType("audio/*");
+                      i.addCategory(Intent.CATEGORY_OPENABLE);
+                      startActivityForResult(i,10);
+                  });
+
+                  export.setOnClickListener(v ->
+                      Toast.makeText(this,
+                      "1080p / 2K / 4K export selected",
+                      Toast.LENGTH_SHORT).show());
+
+                  setContentView(root);
+              }
+          }
+          EOF
+
+      - name: Build APK
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCINSTAEDIT-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
