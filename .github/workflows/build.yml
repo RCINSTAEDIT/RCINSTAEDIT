@@ -24,120 +24,34 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Create Android project
-        shell: bash
+      - name: Create folders
         run: |
           mkdir -p app/src/main/java/com/rcinstaedit/app
           mkdir -p app/src/main/res/values
 
-          cat > settings.gradle <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
+      - name: Create project files
+        run: |
+          echo 'cGx1Z2luTWFuYWdlbWVudCB7IHJlcG9zaXRvcmllcyB7IGdvb2dsZSgpOyBtYXZlbkNlbnRyYWwoKTsgZ3JhZGxlUGx1Z2luUG9ydGFsKCkgfSB9CmRlcGVuZGVuY3lSZXNvbHV0aW9uTWFuYWdlbWVudCB7IHJlcG9zaXRvcmllc01vZGUuc2V0KFJlcG9zaXRvcmllc01vZGUuRkFJTF9PTl9QUk9KRUNUX1JFUE9TKTsgcmVwb3NpdG9yaWVzIHsgZ29vZ2xlKCk7IG1hdmVuQ2VudHJhbCgpIH0gfQpyb290UHJvamVjdC5uYW1lPSJSQ0lOU1RBRURJVCIKaW5jbHVkZSgiOmFwcCIpCg==' | base64 -d > settings.gradle
 
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
+          echo 'cGx1Z2lucyB7IGlkICdjb20uYW5kcm9pZC5hcHBsaWNhdGlvbicgdmVyc2lvbiAnOC43LjMnIGFwcGx5IGZhbHNlIH0K' | base64 -d > build.gradle
 
-          rootProject.name = "RCINSTAEDIT"
-          include(":app")
-          EOF
+          echo 'cGx1Z2lucyB7IGlkICdjb20uYW5kcm9pZC5hcHBsaWNhdGlvbicgfQphbmRyb2lkIHsgbmFtZXNwYWNlICdjb20ucmNpbnN0YWVkaXQuYXBwJzsgY29tcGlsZVNkayAzNTsgZGVmYXVsdENvbmZpZyB7IGFwcGxpY2F0aW9uSWQgJ2NvbS5yY2luc3RhZWRpdC5hcHAnOyBtaW5TZGsgMjM7IHRhcmdldFNkayAzNTsgdmVyc2lvbkNvZGUgMzsgdmVyc2lvbk5hbWUgJzMuMCcgfSB9Cg==' | base64 -d > app/build.gradle
 
-          cat > build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application' version '8.7.3' apply false
-          }
-          EOF
+          echo 'PHJlc291cmNlcz48c3R5bGUgbmFtZT0iQXBwVGhlbWUiIHBhcmVudD0iYW5kcm9pZDpzdHlsZS9UaGVtZS5NYXRlcmlhbC5Ob0FjdGlvbkJhciI+PGl0ZW0gbmFtZT0iYW5kcm9pZDpzdGF0dXNCYXJDb2xvciI+IzBCMEIwRjwvaXRlbT48aXRlbSBuYW1lPSJhbmRyb2lkOm5hdmlnYXRpb25CYXJDb2xvciI+IzBCMEIwRjwvaXRlbT48aXRlbSBuYW1lPSJhbmRyb2lkOmNvbG9yQWNjZW50Ij4jRkYzMTU4PC9pdGVtPjwvc3R5bGU+PC9yZXNvdXJjZXM+' | base64 -d > app/src/main/res/values/themes.xml
 
-          cat > app/build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application'
-          }
+          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48bWFuaWZlc3QgeG1sbnM6YW5kcm9pZD0iaHR0cDovL3NjaGVtYXMuYW5kcm9pZC5jb20vYXBrL3Jlcy9hbmRyb2lkIj48dXNlcy1wZXJtaXNzaW9uIGFuZHJvaWQ6bmFtZT0iYW5kcm9pZC5wZXJtaXNzaW9uLlJFQURfTUVESUFfSU1BR0VTIi8+PHVzZXMtcGVybWlzc2lvbiBhbmRyb2lkOm5hbWU9ImFuZHJvaWQucGVybWlzc2lvbi5SRUFEX01FRElBX1ZJREVPIi8+PGFwcGxpY2F0aW9uIGFuZHJvaWQ6dGhlbWU9IkBzdHlsZS9BcHBUaGVtZSIgYW5kcm9pZDpsYWJlbD0iUkNJTlNUQUVESVQiPjxhY3Rpdml0eSBhbmRyb2lkOm5hbWU9Ii5NYWluQWN0aXZpdHkiIGFuZHJvaWQ6c2NyZWVuT3JpZW50YXRpb249InBvcnRyYWl0IiBhbmRyb2lkOmV4cG9ydGVkPSJ0cnVlIj48aW50ZW50LWZpbHRlcj48YWN0aW9uIGFuZHJvaWQ6bmFtZT0iYW5kcm9pZC5pbnRlbnQuYWN0aW9uLk1BSU4iLz48Y2F0ZWdvcnkgYW5kcm9pZDpuYW1lPSJhbmRyb2lkLmludGVudC5jYXRlZ29yeS5MQVVOQ0hFUiIvPjwvaW50ZW50LWZpbHRlcj48L2FjdGl2aXR5PjwvYXBwbGljYXRpb24+PC9tYW5pZmVzdD4=' | base64 -d > app/src/main/AndroidManifest.xml
 
-          android {
-              namespace 'com.rcinstaedit.app'
-              compileSdk 35
+          echo 'cGFja2FnZSBjb20ucmNpbnN0YWVkaXQuYXBwOwppbXBvcnQgYW5kcm9pZC5hcHAuKjtpbXBvcnQgYW5kcm9pZC5vcy4qO2ltcG9ydCBhbmRyb2lkLmNvbnRlbnQuKjtpbXBvcnQgYW5kcm9pZC5ncmFwaGljcy4qO2ltcG9ydCBhbmRyb2lkLm5ldC4qO2ltcG9ydCBhbmRyb2lkLnByb3ZpZGVyLk1lZGlhU3RvcmU7aW1wb3J0IGFuZHJvaWQudmlldy4qO2ltcG9ydCBhbmRyb2lkLndpZGdldC4qO2ltcG9ydCBqYXZhLmlvLio7CnB1YmxpYyBjbGFzcyBNYWluQWN0aXZpdHkgZXh0ZW5kcyBBY3Rpdml0eXsKIExpbmVhckxheW91dCByOyBJbWFnZVZpZXcgaW07IFZpZGVvVmlldyB2djsgQml0bWFwIGJtOyBpbnQgQkc9Q29sb3IucmdiKDEwLDEwLDE0KSxDPUNvbG9yLnJnYigzMCwzMSwzOSk7CiBwdWJsaWMgdm9pZCBvbkNyZWF0ZShCdW5kbGUgYil7c3VwZXIub25DcmVhdGUoYik7aG9tZSgpO30KIFRleHRWaWV3IHQoU3RyaW5nIHMsaW50IHope1RleHRWaWV3IHY9bmV3IFRleHRWaWV3KHRoaXMpO3Yuc2V0VGV4dChzKTt2LnNldFRleHRDb2xvcihDb2xvci5XSElURSk7di5zZXRUZXh0U2l6ZSh6KTt2LnNldEdyYXZpdHkoMTcpO3Yuc2V0UGFkZGluZygxMiw4LDEyLDgpO3JldHVybiB2O30KIEJ1dHRvbiBiKFN0cmluZyBzKXtCdXR0b24gdj1uZXcgQnV0dG9uKHRoaXMpO3Yuc2V0VGV4dChzKTt2LnNldFRleHRDb2xvcihDb2xvci5XSElURSk7di5zZXRBbGxDYXBzKGZhbHNlKTt2LnNldEJhY2tncm91bmRDb2xvcihDKTtyZXR1cm4gdjt9CiB2b2lkIGJhc2UoU3RyaW5nIHMpe3I9bmV3IExpbmVhckxheW91dCh0aGlzKTtyLnNldE9yaWVudGF0aW9uKExpbmVhckxheW91dC5WRVJUSUNBTCk7ci5zZXRQYWRkaW5nKDE0LDE2LDE0LDE0KTtyLnNldEJhY2tncm91bmRDb2xvcihCRyk7ci5hZGRWaWV3KHQocywyNSksbmV3IExpbmVhckxheW91dC5MYXlvdXRQYXJhbXMoLTEsNzApKTtzZXRDb250ZW50VmlldyhyKTt9CiB2b2lkIGFkZChTdHJpbmcgcyxWaWV3Lk9uQ2xpY2tMaXN0ZW5lciBsKXtCdXR0b24gdj1iKHMpO3IuYWRkVmlldyh2LG5ldyBMaW5lYXJMYXlvdXQuTGF5b3V0UGFyYW1zKC0xLDYyKSk7di5zZXRPbkNsaWNrTGlzdGVuZXIobCk7fQogdm9pZCBob21lKCl7YmFzZSgiUkNJTlNUQUVESVQiKTtyLmFkZFZpZXcodCgiUHJvZmVzc2lvbmFsIFBob3RvICYgUmVlbCBFZGl0b3IiLDE2KSk7YWRkKCJQSE9UTyBFRElUT1IiLHYtPnBpY2soMSkpO2FkZCgiVklERU8gRURJVE9SIix2LT5waWNrKDIpKTthZGQoIkVGRkVDVFMiLHYtPnBpY2soMykpO2FkZCgiVFJBTlNJVElPTlMiLHYtPnRyYW5zKCkpO2FkZCgiSElHSCBRVUFMSVRZIEVYUE9SVCIsdi0+c2F2ZSgpKTt9CiB2b2lkIHBpY2soaW50IHEpe0ludGVudCBpPW5ldyBJbnRlbnQoSW50ZW50LkFDVElPTl9PUEVOX0RPQ1VNRU5UKTtpLnNldFR5cGUocT09Mj8idmlkZW8vKiI6ImltYWdlLyoiKTtpLmFkZENhdGVnb3J5KEludGVudC5DQVRFR09SWV9PUEVOQUJMRSk7c3RhcnRBY3Rpdml0eUZvclJlc3VsdChpLHEpO30KIHByb3RlY3RlZCB2b2lkIG9uQWN0aXZpdHlSZXN1bHQoaW50IHEsaW50IHosSW50ZW50IGQpe3N1cGVyLm9uQWN0aXZpdHlSZXN1bHQocSx6LGQpO2lmKHohPVJFU1VMVF9PS3x8ZD09bnVsbClyZXR1cm47dHJ5e1VyaSB1PWQuZ2V0RGF0YSgpO2lmKHE9PTIpdmlkZW8odSk7ZWxzZXtibT1NZWRpYVN0b3JlLkltYWdlcy5NZWRpYS5nZXRCaXRtYXAoZ2V0Q29udGVudFJlc29sdmVyKCksdSk7ZWRpdChxPT0zKTt9fWNhdGNoKEV4Y2VwdGlvbiBlKXttc2coIkZpbGUgb3BlbiBuYWhpIGh1aSIpO319CiB2b2lkIGVkaXQoYm9vbGVhbiBmeCl7YmFzZShmeD8iRWZmZWN0cyI6IlBob3RvIEVkaXRvciIpO2ltPW5ldyBJbWFnZVZpZXcodGhpcyk7aW0uc2V0SW1hZ2VCaXRtYXAoYm0pO2ltLnNldFNjYWxlVHlwZShJbWFnZVZpZXcuU2NhbGVUeXBlLkZJVF9DRU5URVIpO3IuYWRkVmlldyhpbSxuZXcgTGluZWFyTGF5b3V0LkxheW91dFBhcmFtcygtMSwwLDEpKTthZGQoIkJMQUNLICYgV0hJVEUiLHYtPmdyYXkoKSk7YWRkKCJCUklHSFRORVNTICsiLHYtPmJyaWdodCgpKTthZGQoIldBUk0iLHYtPndhcm0oKSk7YWRkKCJTQVZFIFBIT1RPIix2LT5zYXZlKCkpO2FkZCgiQkFDSyIsdi0+aG9tZSgpKTt9CiB2b2lkIGdyYXkoKXtpZihibT09bnVsbClyZXR1cm47Qml0bWFwIG89Qml0bWFwLmNyZWF0ZUJpdG1hcChibS5nZXRXaWR0aCgpLGJtLmdldEhlaWdodCgpLEJpdG1hcC5Db25maWcuQVJHQl84ODg4KTtmb3IoaW50IHg9MDt4PGJtLmdldFdpZHRoKCk7eCsrKWZvcihpbnQgeT0wO3k8Ym0uZ2V0SGVpZ2h0KCk7eSsrKXtpbnQgYz1ibS5nZXRQaXhlbCh4LHkpLGc9KENvbG9yLnJlZChjKStDb2xvci5ncmVlbihjKStDb2xvci5ibHVlKGMpKS8zO28uc2V0UGl4ZWwoeCx5LENvbG9yLnJnYihnLGcsZykpO31ibT1vO2ltLnNldEltYWdlQml0bWFwKGJtKTt9CiB2b2lkIGJyaWdodCgpe2lmKGJtPT1udWxsKXJldHVybjtCaXRtYXAgbz1CaXRtYXAuY3JlYXRlQml0bWFwKGJtLmdldFdpZHRoKCksYm0uZ2V0SGVpZ2h0KCksQml0bWFwLkNvbmZpZy5BUkdCXzg4ODgpO2ZvcihpbnQgeD0wO3g8Ym0uZ2V0V2lkdGgoKTt4KyspZm9yKGludCB5PTA7eTxibS5nZXRIZWlnaHQoKTt5Kyspe2ludCBjPWJtLmdldFBpeGVsKHgseSk7by5zZXRQaXhlbCh4LHksQ29sb3IucmdiKE1hdGgubWluKDI1NSxDb2xvci5yZWQoYykrMzApLE1hdGgubWluKDI1NSxDb2xvci5ncmVlbihjKSszMCksTWF0aC5taW4oMjU1LENvbG9yLmJsdWUoYykrMzApKSk7fWJtPW87aW0uc2V0SW1hZ2VCaXRtYXAoYm0pO30KIHZvaWQgd2FybSgpe2lmKGJtPT1udWxsKXJldHVybjtCaXRtYXAgbz1CaXRtYXAuY3JlYXRlQml0bWFwKGJtLmdldFdpZHRoKCksYm0uZ2V0SGVpZ2h0KCksQml0bWFwLkNvbmZpZy5BUkdCXzg4ODgpO2ZvcihpbnQgeD0wO3g8Ym0uZ2V0V2lkdGgoKTt4KyspZm9yKGludCB5PTA7eTxibS5nZXRIZWlnaHQoKTt5Kyspe2ludCBjPWJtLmdldFBpeGVsKHgseSk7by5zZXRQaXhlbCh4LHksQ29sb3IucmdiKE1hdGgubWluKDI1NSxDb2xvci5yZWQoYykrMjUpLE1hdGgubWluKDI1NSxDb2xvci5ncmVlbihjKSsxMCksTWF0aC5tYXgoMCxDb2xvci5ibHVlKGMpLTEwKSkpO31ibT1vO2ltLnNldEltYWdlQml0bWFwKGJtKTt9CiB2b2lkIHZpZGVvKFVyaSB1KXtiYXNlKCJWaWRlbyBFZGl0b3IiKTt2dj1uZXcgVmlkZW9WaWV3KHRoaXMpO3Z2LnNldFZpZGVvVVJJKHUpO3Z2LnNldE1lZGlhQ29udHJvbGxlcihuZXcgTWVkaWFDb250cm9sbGVyKHRoaXMpKTtyLmFkZFZpZXcodnYsbmV3IExpbmVhckxheW91dC5MYXlvdXQuTGF5b3V0UGFyYW1zKC0xLDAsMSkpO2FkZCgiUExBWSIsdi0+dnYuc3RhcnQoKSk7YWRkKCJQQVVTRSIsdi0+dnYucGF1c2UoKSk7YWRkKCJCQUNLIix2LT5ob21lKCkpO30KIHZvaWQgdHJhbnMoKXtiYXNlKCJUcmFuc2l0aW9ucyIpO3IuYWRkVmlldyh0KCJUcmFuc2l0aW9uIFN0dWRpbyIsMjApKTthZGQoIkZBREUiLHYtPm1zZygiRkFERSBzZWxlY3RlZCIpKTthZGQoIlNMSURFIix2LT5tc2coIlNMSURFIHNlbGVjdGVkIikpO2FkZCgiWk9PTSIsdi0+bXNnKCJaT09NIHNlbGVjdGVkIikpO2FkZCgiQkFDSyIsdi0+aG9tZSgpKTt9CiB2b2lkIHNhdmUoKXtpZihibT09bnVsbCl7bXNnKCJQZWhsZSBwaG90byBzZWxlY3Qga2FybyIpO3JldHVybjt9dHJ5e0NvbnRlbnRWYWx1ZXMgdj1uZXcgQ29udGVudFZhbHVlcygpO3YucHV0KE1lZGlhU3RvcmUuSW1hZ2VzLk1lZGlhLkRJU1BMQVlfTkFNRSwiUkNJTlNUQUVESVRfIitTeXN0ZW0uY3VycmVudFRpbWVNaWxsaXMoKSsiLmpwZyIpO3YucHV0KE1lZGlhU3RvcmUuSW1hZ2VzLk1lZGlhLk1JTUVfVFlQRSwiaW1hZ2UvanBlZyIpO1VyaSB1PWdldENvbnRlbnRSZXNvbHZlcigpLmluc2VydChNZWRpYVN0b3JlLkltYWdlcy5NZWRpYS5FWFRFUk5BTF9DT05URU5UX1VSSSx2KTtPdXRwdXRTdHJlYW0gbz1nZXRDb250ZW50UmVzb2x2ZXIoKS5vcGVuT3V0cHV0U3RyZWFtKHUpO2JtLmNvbXByZXNzKEJpdG1hcC5Db21wcmVzc0Zvcm1hdC5KUEVHLDEwMCxvKTtvLmNsb3NlKCk7bXNnKCJHYWxsZXJ5IG1laW4gc2F2ZSBobyBnYXlpIik7fWNhdGNoKEV4Y2VwdGlvbiBlKXttc2coIkV4cG9ydCBmYWlsZWQiKTt9fQogdm9pZCBtc2coU3RyaW5nIHMpe1RvYXN0Lm1ha2VUZXh0KHRoaXMscyxUb2FzdC5MRU5HVEhfU0hPUlQpLnNob3coKTt9Cn0=' | base64 -d > app/src/main/java/com/rcinstaedit/app/MainActivity.java
 
-              defaultConfig {
-                  applicationId 'com.rcinstaedit.app'
-                  minSdk 23
-                  targetSdk 35
-                  versionCode 2
-                  versionName '2.0'
-              }
-          }
-          EOF
+      - name: Build APK
+        run: |
+          gradle assembleDebug --stacktrace
+          echo "APK:"
+          find app/build/outputs -name "*.apk" -print
 
-          cat > app/src/main/res/values/colors.xml <<'EOF'
-          <resources>
-              <color name="bg">#0B0B0F</color>
-              <color name="card">#1C1D24</color>
-              <color name="white">#FFFFFF</color>
-              <color name="accent">#FF3158</color>
-          </resources>
-          EOF
-
-          cat > app/src/main/res/values/themes.xml <<'EOF'
-          <resources>
-              <style name="AppTheme"
-                  parent="android:style/Theme.Material.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:statusBarColor">#0B0B0F</item>
-                  <item name="android:navigationBarColor">#0B0B0F</item>
-                  <item name="android:colorAccent">#FF3158</item>
-              </style>
-          </resources>
-          EOF
-
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
-              <uses-permission
-                  android:name="android.permission.READ_EXTERNAL_STORAGE"
-                  android:maxSdkVersion="32"/>
-
-              <application
-                  android:theme="@style/AppTheme"
-                  android:label="RCINSTAEDIT"
-                  android:allowBackup="true">
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:screenOrientation="portrait"
-                      android:exported="true">
-
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-
-          cat > app/src/main/java/com/rcinstaedit/app/MainActivity.java <<'EOF'
-          package com.rcinstaedit.app;
-
-          import android.app.Activity;
-          import android.os.Bundle;
-          import android.content.Intent;
-          import android.graphics.Bitmap;
-          import android.graphics.Color;
-          import android.net.Uri;
-          import android.provider.MediaStore;
-          import android.view.Gravity;
-          import android.widget.*;
-         
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCINSTAEDIT-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
