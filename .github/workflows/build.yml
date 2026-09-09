@@ -1,4 +1,4 @@
-
+name: Build RCINSTAEDIT APK
 
 on:
   workflow_dispatch:
@@ -14,25 +14,27 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
-      - name: Create Android project
-        shell: bash
+      - name: Create project folders
         run: |
           rm -rf app
-          rm -f build.gradle settings.gradle gradle.properties
-          rm -rf gradle
-
           mkdir -p app/src/main/java/com/rcinstaedit/app
           mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/mipmap-hdpi
 
-          cat > settings.gradle <<'FILE'
+      - name: Create settings.gradle
+        run: |
+          cat > settings.gradle <<'EOF'
           pluginManagement {
               repositories {
                   google()
@@ -51,20 +53,27 @@ jobs:
 
           rootProject.name = "RCINSTAEDIT"
           include(":app")
-          FILE
+          EOF
 
-          cat > build.gradle <<'FILE'
+      - name: Create root build.gradle
+        run: |
+          cat > build.gradle <<'EOF'
           plugins {
               id 'com.android.application' version '8.7.3' apply false
           }
-          FILE
+          EOF
 
-          cat > gradle.properties <<'FILE'
+      - name: Create gradle.properties
+        run: |
+          cat > gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           android.useAndroidX=true
-          FILE
+          android.nonTransitiveRClass=true
+          EOF
 
-          cat > app/build.gradle <<'FILE'
+      - name: Create app build.gradle
+        run: |
+          cat > app/build.gradle <<'EOF'
           plugins {
               id 'com.android.application'
           }
@@ -74,11 +83,11 @@ jobs:
               compileSdk 35
 
               defaultConfig {
-                  applicationId "com.rcinstaedit.app"
+                  applicationId 'com.rcinstaedit.app'
                   minSdk 23
                   targetSdk 35
                   versionCode 1
-                  versionName "1.0"
+                  versionName '1.0'
               }
 
               buildTypes {
@@ -92,43 +101,32 @@ jobs:
                   targetCompatibility JavaVersion.VERSION_17
               }
           }
-          FILE
 
-          cat > app/src/main/res/values/colors.xml <<'FILE'
-          <resources>
-              <color name="black">#08080B</color>
-              <color name="pink">#FF2D78</color>
-              <color name="white">#FFFFFF</color>
-              <color name="gray">#A7A7B0</color>
-              <color name="card">#17171D</color>
-          </resources>
-          FILE
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.7.0'
+              implementation 'androidx.activity:activity:1.10.1'
+              implementation 'androidx.core:core:1.16.0'
+          }
+          EOF
 
-          cat > app/src/main/res/values/themes.xml <<'FILE'
-          <resources>
-              <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:statusBarColor">#08080B</item>
-                  <item name="android:navigationBarColor">#08080B</item>
-                  <item name="android:colorAccent">#FF2D78</item>
-                  <item name="android:windowBackground">#08080B</item>
-              </style>
-          </resources>
-          FILE
-
-          cat > app/src/main/AndroidManifest.xml <<'FILE'
+      - name: Create AndroidManifest.xml
+        run: |
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-                  android:maxSdkVersion="32"/>
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+              <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <uses-permission
+                  android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+                  android:maxSdkVersion="28" />
 
               <application
-                  android:theme="@style/AppTheme"
-                  android:label="RCINSTAEDIT"
                   android:allowBackup="true"
+                  android:label="RCINSTAEDIT"
+                  android:theme="@style/AppTheme"
                   android:supportsRtl="true">
 
                   <activity
@@ -137,48 +135,98 @@ jobs:
                       android:exported="true">
 
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
 
                   </activity>
-              </application>
-          </manifest>
-          FILE
 
-          cat > app/src/main/java/com/rcinstaedit/app/MainActivity.java <<'FILE'
+              </application>
+
+          </manifest>
+          EOF
+
+      - name: Create colors.xml
+        run: |
+          cat > app/src/main/res/values/colors.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="black">#08080B</color>
+              <color name="pink">#FF2D75</color>
+              <color name="white">#FFFFFF</color>
+              <color name="gray">#A8A8B3</color>
+              <color name="card">#18181F</color>
+          </resources>
+          EOF
+
+      - name: Create themes.xml
+        run: |
+          cat > app/src/main/res/values/themes.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+
+              <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#08080B</item>
+                  <item name="android:navigationBarColor">#08080B</item>
+                  <item name="android:colorAccent">#FF2D75</item>
+              </style>
+
+          </resources>
+          EOF
+
+      - name: Create MainActivity.java
+        run: |
+          cat > app/src/main/java/com/rcinstaedit/app/MainActivity.java <<'EOF'
           package com.rcinstaedit.app;
 
           import android.app.Activity;
-          import android.os.Bundle;
+          import android.app.AlertDialog;
+          import android.content.ContentValues;
           import android.content.Intent;
-          import android.net.Uri;
-          import android.provider.MediaStore;
+          import android.content.pm.PackageManager;
           import android.graphics.Bitmap;
           import android.graphics.BitmapFactory;
           import android.graphics.Color;
-          import android.graphics.Canvas;
-          import android.graphics.Paint;
-          import android.graphics.ColorMatrix;
-          import android.graphics.ColorMatrixColorFilter;
+          import android.media.MediaPlayer;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Environment;
+          import android.provider.MediaStore;
           import android.view.Gravity;
           import android.view.View;
-          import android.widget.*;
+          import android.view.ViewGroup;
+          import android.widget.Button;
+          import android.widget.ImageView;
+          import android.widget.LinearLayout;
+          import android.widget.MediaController;
+          import android.widget.ScrollView;
+          import android.widget.TextView;
+          import android.widget.Toast;
+          import android.widget.VideoView;
 
-          import java.io.OutputStream;
+          import java.io.File;
+          import java.io.FileOutputStream;
+          import java.io.InputStream;
 
           public class MainActivity extends Activity {
 
-              LinearLayout root;
-              ImageView photoView;
-              Bitmap originalBitmap;
-              Bitmap editedBitmap;
-              VideoView videoView;
+              private static final int PHOTO_PICK = 100;
+              private static final int VIDEO_PICK = 101;
+              private static final int AUDIO_PICK = 102;
 
-              int pink = Color.rgb(255,45,120);
+              private LinearLayout root;
+              private ImageView imageView;
+              private VideoView videoView;
+              private Bitmap currentBitmap;
+
+              int bg = Color.rgb(8, 8, 11);
+              int card = Color.rgb(24, 24, 31);
+              int pink = Color.rgb(255, 45, 117);
               int white = Color.WHITE;
-              int gray = Color.rgb(170,170,180);
-              int card = Color.rgb(23,23,29);
+              int gray = Color.rgb(170, 170, 180);
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -186,447 +234,522 @@ jobs:
                   showHome();
               }
 
-              TextView text(String value, float size, int color) {
+              private TextView text(String value, float size, int color) {
                   TextView t = new TextView(this);
                   t.setText(value);
                   t.setTextSize(size);
                   t.setTextColor(color);
                   t.setGravity(Gravity.CENTER_VERTICAL);
-                  t.setPadding(22, 12, 22, 12);
+                  t.setPadding(18, 8, 18, 8);
                   return t;
               }
 
-              Button button(String title) {
+              private Button button(String title) {
                   Button b = new Button(this);
                   b.setText(title);
                   b.setTextSize(15);
                   b.setTextColor(white);
                   b.setAllCaps(false);
                   b.setGravity(Gravity.CENTER);
-                  b.setMinHeight(60);
+                  b.setMinHeight(58);
+                  b.setPadding(12, 4, 12, 4);
                   b.setBackgroundColor(card);
+
+                  LinearLayout.LayoutParams p =
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  ViewGroup.LayoutParams.WRAP_CONTENT);
+                  p.setMargins(12, 8, 12, 8);
+                  b.setLayoutParams(p);
+
                   return b;
               }
 
-              void base() {
+              private void base(String title) {
+                  ScrollView scroll = new ScrollView(this);
+                  scroll.setBackgroundColor(bg);
+
                   root = new LinearLayout(this);
                   root.setOrientation(LinearLayout.VERTICAL);
-                  root.setBackgroundColor(Color.rgb(8,8,11));
-                  root.setPadding(18, 18, 18, 18);
+                  root.setPadding(12, 12, 12, 24);
+                  root.setBackgroundColor(bg);
+
+                  scroll.addView(root);
+                  setContentView(scroll);
+
+                  TextView head = text(title, 30, pink);
+                  head.setGravity(Gravity.CENTER_VERTICAL);
+                  root.addView(head);
+
+                  TextView line = text(
+                          "RCINSTAEDIT  •  Create. Edit. Inspire.",
+                          15,
+                          gray);
+                  root.addView(line);
               }
 
-              void showHome() {
-                  base();
+              private void showHome() {
+                  base("RCINSTAEDIT");
 
-                  ScrollView scroll = new ScrollView(this);
-                  LinearLayout content = new LinearLayout(this);
-                  content.setOrientation(LinearLayout.VERTICAL);
-
-                  TextView logo = text("RCINSTAEDIT", 32, pink);
-                  logo.setGravity(Gravity.CENTER_VERTICAL);
-                  content.addView(logo);
-
-                  TextView sub = text("Professional Photo & Reel Editor", 18, gray);
-                  content.addView(sub);
-
-                  Space space = new Space(this);
-                  content.addView(space, new LinearLayout.LayoutParams(1,20));
+                  TextView sub = text(
+                          "Professional Photo & Reel Editor",
+                          17,
+                          gray);
+                  sub.setPadding(18, 4, 18, 18);
+                  root.addView(sub);
 
                   Button photo = button("🖼  PHOTO EDITOR");
-                  content.addView(photo, params());
+                  photo.setOnClickListener(v -> openPhotoEditor());
+                  root.addView(photo);
 
                   Button video = button("🎬  VIDEO EDITOR");
-                  content.addView(video, params());
+                  video.setOnClickListener(v -> openVideoEditor());
+                  root.addView(video);
 
                   Button effects = button("✨  EFFECTS");
-                  content.addView(effects, params());
+                  effects.setOnClickListener(v -> openEffects());
+                  root.addView(effects);
 
                   Button transitions = button("⚡  TRANSITIONS");
-                  content.addView(transitions, params());
+                  transitions.setOnClickListener(v -> openTransitions());
+                  root.addView(transitions);
+
+                  Button audio = button("🎵  ADD AUDIO FROM PHONE");
+                  audio.setOnClickListener(v -> pickAudio());
+                  root.addView(audio);
 
                   Button export = button("⬆  HIGH QUALITY EXPORT");
-                  content.addView(export, params());
+                  export.setOnClickListener(v -> exportPhoto());
+                  root.addView(export);
 
-                  Space bottom = new Space(this);
-                  content.addView(bottom, new LinearLayout.LayoutParams(1,35));
+                  TextView footer = text(
+                          "\nRCINSTAEDIT  •  Version 1.0\n\nProfessional editing tools are being added.",
+                          15,
+                          gray);
+                  footer.setGravity(Gravity.CENTER);
+                  footer.setPadding(10, 35, 10, 20);
+                  root.addView(footer);
+              }
+
+              private void openPhotoEditor() {
+                  base("PHOTO EDITOR");
+
+                  Button choose = button("🖼  CHOOSE PHOTO");
+                  choose.setOnClickListener(v -> pickPhoto());
+                  root.addView(choose);
+
+                  imageView = new ImageView(this);
+                  imageView.setAdjustViewBounds(true);
+                  imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+
+                  LinearLayout.LayoutParams img =
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  480);
+                  img.setMargins(12, 15, 12, 15);
+                  imageView.setLayoutParams(img);
+                  root.addView(imageView);
+
+                  Button grayBtn = button("◐  GRAYSCALE");
+                  grayBtn.setOnClickListener(v -> applyGray());
+                  root.addView(grayBtn);
+
+                  Button bright = button("☀  BRIGHTNESS");
+                  bright.setOnClickListener(v -> applyBrightness());
+                  root.addView(bright);
+
+                  Button original = button("↺  ORIGINAL");
+                  original.setOnClickListener(v -> {
+                      if (currentBitmap != null) {
+                          imageView.setImageBitmap(currentBitmap);
+                      }
+                  });
+                  root.addView(original);
+
+                  Button save = button("⬆  SAVE PHOTO");
+                  save.setOnClickListener(v -> exportPhoto());
+                  root.addView(save);
+
+                  Button back = button("←  BACK");
+                  back.setOnClickListener(v -> showHome());
+                  root.addView(back);
+              }
+
+              private void pickPhoto() {
+                  Intent i = new Intent(
+                          Intent.ACTION_PICK,
+                          MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                  startActivityForResult(i, PHOTO_PICK);
+              }
+
+              private void openVideoEditor() {
+                  base("VIDEO EDITOR");
+
+                  Button choose = button("🎬  CHOOSE VIDEO");
+                  choose.setOnClickListener(v -> pickVideo());
+                  root.addView(choose);
+
+                  videoView = new VideoView(this);
+
+                  LinearLayout.LayoutParams vp =
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  500);
+                  vp.setMargins(10, 15, 10, 15);
+                  videoView.setLayoutParams(vp);
+                  root.addView(videoView);
+
+                  Button play = button("▶  PLAY VIDEO");
+                  play.setOnClickListener(v -> {
+                      if (videoView.getDuration() > 0) {
+                          videoView.start();
+                      }
+                  });
+                  root.addView(play);
+
+                  Button pause = button("⏸  PAUSE");
+                  pause.setOnClickListener(v -> videoView.pause());
+                  root.addView(pause);
+
+                  Button back = button("←  BACK");
+                  back.setOnClickListener(v -> showHome());
+                  root.addView(back);
+              }
+
+              private void pickVideo() {
+                  Intent i = new Intent(
+                          Intent.ACTION_PICK,
+                          MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
+                  startActivityForResult(i, VIDEO_PICK);
+              }
+
+              private void openEffects() {
+                  base("EFFECTS");
 
                   TextView info = text(
-                      "RCINSTAEDIT  •  Version 1.0\\n\\nCreate. Edit. Inspire.\\n\\nPhoto tools and video tools are ready.",
-                      15, gray
-                  );
-                  info.setGravity(Gravity.CENTER);
-                  content.addView(info, new LinearLayout.LayoutParams(
-                      -1, 170
-                  ));
+                          "Choose a photo and apply a quick effect.",
+                          16,
+                          gray);
+                  root.addView(info);
 
-                  scroll.addView(content);
-                  root.addView(scroll, new LinearLayout.LayoutParams(-1,-1));
-                  setContentView(root);
+                  Button choose = button("🖼  CHOOSE PHOTO");
+                  choose.setOnClickListener(v -> openPhotoEditor());
+                  root.addView(choose);
 
-                  photo.setOnClickListener(v -> showPhotoEditor());
-                  video.setOnClickListener(v -> showVideoEditor());
-                  effects.setOnClickListener(v -> showEffects());
-                  transitions.setOnClickListener(v -> showTransitions());
-                  export.setOnClickListener(v -> showExport());
+                  Button cinematic = button("🎞  CINEMATIC");
+                  cinematic.setOnClickListener(v ->
+                          Toast.makeText(this,
+                                  "Cinematic effect selected",
+                                  Toast.LENGTH_SHORT).show());
+                  root.addView(cinematic);
+
+                  Button vintage = button("📷  VINTAGE");
+                  vintage.setOnClickListener(v ->
+                          Toast.makeText(this,
+                                  "Vintage effect selected",
+                                  Toast.LENGTH_SHORT).show());
+                  root.addView(vintage);
+
+                  Button glow = button("✨  GLOW");
+                  glow.setOnClickListener(v ->
+                          Toast.makeText(this,
+                                  "Glow effect selected",
+                                  Toast.LENGTH_SHORT).show());
+                  root.addView(glow);
+
+                  Button back = button("←  BACK");
+                  back.setOnClickListener(v -> showHome());
+                  root.addView(back);
               }
 
-              LinearLayout.LayoutParams params() {
-                  LinearLayout.LayoutParams p =
-                      new LinearLayout.LayoutParams(-1, 64);
-                  p.setMargins(0, 8, 0, 8);
-                  return p;
+              private void openTransitions() {
+                  base("TRANSITIONS");
+
+                  TextView info = text(
+                          "Select a transition style for your reel.",
+                          16,
+                          gray);
+                  root.addView(info);
+
+                  String[] names = {
+                          "FADE",
+                          "SLIDE",
+                          "ZOOM",
+                          "BLUR",
+                          "FLASH"
+                  };
+
+                  for (String n : names) {
+                      Button b = button("⚡  " + n);
+                      b.setOnClickListener(v ->
+                              Toast.makeText(this,
+                                      n + " transition selected",
+                                      Toast.LENGTH_SHORT).show());
+                      root.addView(b);
+                  }
+
+                  Button back = button("←  BACK");
+                  back.setOnClickListener(v -> showHome());
+                  root.addView(back);
               }
 
-              TextView header(String title) {
-                  TextView h = text("‹   " + title, 22, white);
-                  h.setPadding(5, 10, 5, 20);
-                  h.setOnClickListener(v -> showHome());
-                  return h;
+              private void pickAudio() {
+                  Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                  i.setType("audio/*");
+                  i.addCategory(Intent.CATEGORY_OPENABLE);
+                  startActivityForResult(i, AUDIO_PICK);
               }
 
-              void showPhotoEditor() {
-                  base();
+              private void applyGray() {
+                  if (imageView == null || currentBitmap == null) {
+                      Toast.makeText(this,
+                              "Pehle photo select kar bhai",
+                              Toast.LENGTH_SHORT).show();
+                      return;
+                  }
 
-                  root.addView(header("PHOTO EDITOR"));
+                  Bitmap src = currentBitmap.copy(
+                          Bitmap.Config.ARGB_8888,
+                          true);
 
-                  Button choose = button("📷  SELECT PHOTO FROM PHONE");
-                  root.addView(choose, params());
+                  for (int y = 0; y < src.getHeight(); y++) {
+                      for (int x = 0; x < src.getWidth(); x++) {
+                          int c = src.getPixel(x, y);
+                          int r = Color.red(c);
+                          int g = Color.green(c);
+                          int b = Color.blue(c);
+                          int grayValue =
+                                  (int)(0.299 * r +
+                                        0.587 * g +
+                                        0.114 * b);
 
-                  photoView = new ImageView(this);
-                  photoView.setBackgroundColor(Color.rgb(18,18,22));
-                  photoView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                  root.addView(photoView, new LinearLayout.LayoutParams(-1,0,1));
+                          src.setPixel(
+                                  x,
+                                  y,
+                                  Color.rgb(
+                                          grayValue,
+                                          grayValue,
+                                          grayValue));
+                      }
+                  }
 
-                  LinearLayout tools = new LinearLayout(this);
-                  tools.setOrientation(LinearLayout.HORIZONTAL);
+                  imageView.setImageBitmap(src);
+                  currentBitmap = src;
 
-                  Button grayBtn = button("B&W");
-                  Button bright = button("BRIGHT");
-                  Button save = button("SAVE");
-
-                  tools.addView(grayBtn, new LinearLayout.LayoutParams(0,65,1));
-                  tools.addView(bright, new LinearLayout.LayoutParams(0,65,1));
-                  tools.addView(save, new LinearLayout.LayoutParams(0,65,1));
-
-                  root.addView(tools);
-
-                  choose.setOnClickListener(v -> pickPhoto());
-
-                  grayBtn.setOnClickListener(v -> applyGray());
-
-                  bright.setOnClickListener(v -> applyBrightness());
-
-                  save.setOnClickListener(v -> savePhoto());
+                  Toast.makeText(this,
+                          "Grayscale applied",
+                          Toast.LENGTH_SHORT).show();
               }
 
-              void pickPhoto() {
-                  Intent i = new Intent(Intent.ACTION_PICK);
-                  i.setDataAndType(
-                      MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                      "image/*"
-                  );
-                  startActivityForResult(i, 100);
+              private void applyBrightness() {
+                  if (imageView == null || currentBitmap == null) {
+                      Toast.makeText(this,
+                              "Pehle photo select kar bhai",
+                              Toast.LENGTH_SHORT).show();
+                      return;
+                  }
+
+                  Bitmap src = currentBitmap.copy(
+                          Bitmap.Config.ARGB_8888,
+                          true);
+
+                  for (int y = 0; y < src.getHeight(); y++) {
+                      for (int x = 0; x < src.getWidth(); x++) {
+                          int c = src.getPixel(x, y);
+
+                          int r = Math.min(255, Color.red(c) + 35);
+                          int g = Math.min(255, Color.green(c) + 35);
+                          int b = Math.min(255, Color.blue(c) + 35);
+
+                          src.setPixel(
+                                  x,
+                                  y,
+                                  Color.rgb(r, g, b));
+                      }
+                  }
+
+                  imageView.setImageBitmap(src);
+                  currentBitmap = src;
+
+                  Toast.makeText(this,
+                          "Brightness increased",
+                          Toast.LENGTH_SHORT).show();
               }
 
-              void pickVideo() {
-                  Intent i = new Intent(Intent.ACTION_PICK);
-                  i.setDataAndType(
-                      MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                      "video/*"
-                  );
-                  startActivityForResult(i, 200);
+              private void exportPhoto() {
+                  if (currentBitmap == null) {
+                      Toast.makeText(this,
+                              "Pehle Photo Editor se photo select kar",
+                              Toast.LENGTH_LONG).show();
+                      return;
+                  }
+
+                  try {
+                      String fileName =
+                              "RCINSTAEDIT_" +
+                              System.currentTimeMillis() +
+                              ".jpg";
+
+                      if (Build.VERSION.SDK_INT >= 29) {
+
+                          ContentValues values = new ContentValues();
+                          values.put(
+                                  MediaStore.Images.Media.DISPLAY_NAME,
+                                  fileName);
+                          values.put(
+                                  MediaStore.Images.Media.MIME_TYPE,
+                                  "image/jpeg");
+                          values.put(
+                                  MediaStore.Images.Media.RELATIVE_PATH,
+                                  Environment.DIRECTORY_PICTURES
+                                          + "/RCINSTAEDIT");
+
+                          Uri uri = getContentResolver().insert(
+                                  MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                  values);
+
+                          if (uri != null) {
+                              FileOutputStream out =
+                                      (FileOutputStream)
+                                      getContentResolver()
+                                      .openOutputStream(uri);
+
+                              currentBitmap.compress(
+                                      Bitmap.CompressFormat.JPEG,
+                                      100,
+                                      out);
+
+                              out.flush();
+                              out.close();
+
+                              Toast.makeText(
+                                      this,
+                                      "Photo saved in Pictures/RCINSTAEDIT",
+                                      Toast.LENGTH_LONG).show();
+                          }
+
+                      } else {
+
+                          File dir = new File(
+                                  Environment
+                                  .getExternalStoragePublicDirectory(
+                                          Environment.DIRECTORY_PICTURES),
+                                  "RCINSTAEDIT");
+
+                          if (!dir.exists()) {
+                              dir.mkdirs();
+                          }
+
+                          File file = new File(dir, fileName);
+
+                          FileOutputStream out =
+                                  new FileOutputStream(file);
+
+                          currentBitmap.compress(
+                                  Bitmap.CompressFormat.JPEG,
+                                  100,
+                                  out);
+
+                          out.flush();
+                          out.close();
+
+                          Toast.makeText(
+                                  this,
+                                  "Photo saved",
+                                  Toast.LENGTH_LONG).show();
+                      }
+
+                  } catch (Exception e) {
+                      Toast.makeText(
+                              this,
+                              "Export failed: " + e.getMessage(),
+                              Toast.LENGTH_LONG).show();
+                  }
               }
 
               @Override
               protected void onActivityResult(
-                      int requestCode, int resultCode, Intent data) {
-                  super.onActivityResult(requestCode, resultCode, data);
+                      int requestCode,
+                      int resultCode,
+                      Intent data) {
 
-                  if (resultCode != RESULT_OK || data == null) return;
+                  super.onActivityResult(
+                          requestCode,
+                          resultCode,
+                          data);
+
+                  if (resultCode != RESULT_OK ||
+                          data == null ||
+                          data.getData() == null) {
+                      return;
+                  }
 
                   Uri uri = data.getData();
 
                   try {
-                      if (requestCode == 100) {
-                          originalBitmap =
-                              BitmapFactory.decodeStream(
-                                  getContentResolver().openInputStream(uri)
-                              );
 
-                          editedBitmap = originalBitmap.copy(
-                              Bitmap.Config.ARGB_8888, true
-                          );
+                      if (requestCode == PHOTO_PICK) {
 
-                          photoView.setImageBitmap(editedBitmap);
-                      }
+                          InputStream in =
+                                  getContentResolver()
+                                  .openInputStream(uri);
 
-                      if (requestCode == 200) {
-                          videoView.setVideoURI(uri);
-                          videoView.start();
-                      }
-                  } catch (Exception e) {
-                      Toast.makeText(
-                          this,
-                          "File open nahi ho payi",
-                          Toast.LENGTH_SHORT
-                      ).show();
-                  }
-              }
+                          currentBitmap =
+                                  BitmapFactory.decodeStream(in);
 
-              void applyGray() {
-                  if (originalBitmap == null) {
-                      Toast.makeText(this,"Pehle photo select karo",Toast.LENGTH_SHORT).show();
-                      return;
-                  }
+                          if (in != null) {
+                              in.close();
+                          }
 
-                  Bitmap out = Bitmap.createBitmap(
-                      originalBitmap.getWidth(),
-                      originalBitmap.getHeight(),
-                      Bitmap.Config.ARGB_8888
-                  );
+                          if (imageView != null) {
+                              imageView.setImageBitmap(currentBitmap);
+                          }
 
-                  Canvas canvas = new Canvas(out);
-                  Paint paint = new Paint();
-
-                  ColorMatrix matrix = new ColorMatrix();
-                  matrix.setSaturation(0);
-
-                  paint.setColorFilter(new ColorMatrixColorFilter(matrix));
-                  canvas.drawBitmap(originalBitmap,0,0,paint);
-
-                  editedBitmap = out;
-                  photoView.setImageBitmap(editedBitmap);
-              }
-
-              void applyBrightness() {
-                  if (originalBitmap == null) {
-                      Toast.makeText(this,"Pehle photo select karo",Toast.LENGTH_SHORT).show();
-                      return;
-                  }
-
-                  Bitmap out = Bitmap.createBitmap(
-                      originalBitmap.getWidth(),
-                      originalBitmap.getHeight(),
-                      Bitmap.Config.ARGB_8888
-                  );
-
-                  Canvas canvas = new Canvas(out);
-                  Paint paint = new Paint();
-
-                  ColorMatrix matrix = new ColorMatrix(new float[]{
-                      1,0,0,0,25,
-                      0,1,0,0,25,
-                      0,0,1,0,25,
-                      0,0,0,1,0
-                  });
-
-                  paint.setColorFilter(new ColorMatrixColorFilter(matrix));
-                  canvas.drawBitmap(originalBitmap,0,0,paint);
-
-                  editedBitmap = out;
-                  photoView.setImageBitmap(editedBitmap);
-              }
-
-              void savePhoto() {
-                  if (editedBitmap == null) {
-                      Toast.makeText(this,"Pehle photo select karo",Toast.LENGTH_SHORT).show();
-                      return;
-                  }
-
-                  try {
-                      String name =
-                          "RCINSTAEDIT_" + System.currentTimeMillis() + ".jpg";
-
-                      android.content.ContentValues values =
-                          new android.content.ContentValues();
-
-                      values.put(MediaStore.Images.Media.DISPLAY_NAME,name);
-                      values.put(MediaStore.Images.Media.MIME_TYPE,"image/jpeg");
-
-                      Uri uri = getContentResolver().insert(
-                          MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                          values
-                      );
-
-                      OutputStream out =
-                          getContentResolver().openOutputStream(uri);
-
-                      editedBitmap.compress(
-                          Bitmap.CompressFormat.JPEG,
-                          95,
-                          out
-                      );
-
-                      out.close();
-
-                      Toast.makeText(
-                          this,
-                          "Photo save ho gayi ✅",
-                          Toast.LENGTH_LONG
-                      ).show();
-
-                  } catch(Exception e) {
-                      Toast.makeText(
-                          this,
-                          "Save failed",
-                          Toast.LENGTH_SHORT
-                      ).show();
-                  }
-              }
-
-              void showVideoEditor() {
-                  base();
-
-                  root.addView(header("VIDEO EDITOR"));
-
-                  Button choose = button("🎬  SELECT VIDEO FROM PHONE");
-                  root.addView(choose, params());
-
-                  videoView = new VideoView(this);
-                  videoView.setBackgroundColor(Color.BLACK);
-
-                  root.addView(
-                      videoView,
-                      new LinearLayout.LayoutParams(-1,0,1)
-                  );
-
-                  Button play = button("▶  PLAY / PAUSE");
-                  root.addView(play, params());
-
-                  TextView note = text(
-                      "Video preview ready. Advanced trimming, filters and transitions will be added in the next build.",
-                      14, gray
-                  );
-                  note.setGravity(Gravity.CENTER);
-                  root.addView(note, new LinearLayout.LayoutParams(-1,100));
-
-                  choose.setOnClickListener(v -> pickVideo());
-
-                  play.setOnClickListener(v -> {
-                      if (videoView.isPlaying()) {
-                          videoView.pause();
-                      } else {
-                          videoView.start();
-                      }
-                  });
-              }
-
-              void showEffects() {
-                  base();
-
-                  root.addView(header("EFFECTS"));
-
-                  TextView title = text(
-                      "Choose a photo effect",
-                      21, white
-                  );
-                  root.addView(title);
-
-                  Button bw = button("⚫  BLACK & WHITE");
-                  Button bright = button("☀  BRIGHT");
-                  Button warm = button("🔥  WARM LOOK");
-                  Button cool = button("❄  COOL LOOK");
-
-                  root.addView(bw, params());
-                  root.addView(bright, params());
-                  root.addView(warm, params());
-                  root.addView(cool, params());
-
-                  TextView info = text(
-                      "Effects screen is active. Select a photo inside Photo Editor to apply the available effects.",
-                      15, gray
-                  );
-                  info.setGravity(Gravity.CENTER);
-                  root.addView(info, new LinearLayout.LayoutParams(-1,180));
-
-                  bw.setOnClickListener(v -> showPhotoEditor());
-                  bright.setOnClickListener(v -> showPhotoEditor());
-                  warm.setOnClickListener(v -> showPhotoEditor());
-                  cool.setOnClickListener(v -> showPhotoEditor());
-              }
-
-              void showTransitions() {
-                  base();
-
-                  root.addView(header("TRANSITIONS"));
-
-                  TextView title = text(
-                      "Reel Transitions",
-                      24, white
-                  );
-                  root.addView(title);
-
-                  String[] names = {
-                      "✨  FADE",
-                      "➡  SLIDE",
-                      "⬆  PUSH",
-                      "🔄  ZOOM",
-                      "⚡  FLASH"
-                  };
-
-                  for (String n : names) {
-                      Button b = button(n);
-                      root.addView(b, params());
-
-                      b.setOnClickListener(v ->
                           Toast.makeText(
+                                  this,
+                                  "Photo loaded",
+                                  Toast.LENGTH_SHORT).show();
+
+                      } else if (requestCode == VIDEO_PICK) {
+
+                          if (videoView != null) {
+
+                              videoView.setVideoURI(uri);
+
+                              MediaController controller =
+                                      new MediaController(this);
+
+                              controller.setAnchorView(videoView);
+                              videoView.setMediaController(controller);
+
+                              Toast.makeText(
+                                      this,
+                                      "Video loaded",
+                                      Toast.LENGTH_SHORT).show();
+                          }
+
+                      } else if (requestCode == AUDIO_PICK) {
+
+                          Toast.makeText(
+                                  this,
+                                  "Audio selected successfully",
+                                  Toast.LENGTH_LONG).show();
+                      }
+
+                  } catch (Exception e) {
+
+                      Toast.makeText(
                               this,
-                              "Transition selected: " + n,
-                              Toast.LENGTH_SHORT
-                          ).show()
-                      );
+                              "File open failed",
+                              Toast.LENGTH_LONG).show();
                   }
-
-                  TextView info = text(
-                      "Multiple-clip transition engine will be connected in the next editing build.",
-                      15, gray
-                  );
-                  info.setGravity(Gravity.CENTER);
-                  root.addView(info, new LinearLayout.LayoutParams(-1,180));
-              }
-
-              void showExport() {
-                  base();
-
-                  root.addView(header("HIGH QUALITY EXPORT"));
-
-                  TextView title = text(
-                      "RCINSTAEDIT Export",
-                      26, pink
-                  );
-                  title.setGravity(Gravity.CENTER);
-                  root.addView(title);
-
-                  TextView quality = text(
-                      "PHOTO EXPORT\\n\\nJPEG Quality: 95%\\n\\nVIDEO EXPORT\\n\\nHigh quality video pipeline ready for the next build.",
-                      18, white
-                  );
-                  quality.setGravity(Gravity.CENTER);
-                  root.addView(
-                      quality,
-                      new LinearLayout.LayoutParams(-1,300)
-                  );
-
-                  Button photo = button("🖼  OPEN PHOTO EDITOR");
-                  Button video = button("🎬  OPEN VIDEO EDITOR");
-
-                  root.addView(photo, params());
-                  root.addView(video, params());
-
-                  photo.setOnClickListener(v -> showPhotoEditor());
-                  video.setOnClickListener(v -> showVideoEditor());
               }
           }
-          FILE
-
-      - name: Generate Gradle wrapper
-        run: |
-          gradle wrapper --gradle-version 8.9
+          EOF
 
       - name: Build APK
         run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
