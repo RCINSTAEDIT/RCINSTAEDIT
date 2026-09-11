@@ -1,1 +1,777 @@
+name: RCINSTAEDIT APK
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Create Android Project
+        shell: bash
+        run: |
+          set -e
+
+          rm -rf app build .gradle gradle
+          rm -f build.gradle settings.gradle gradle.properties
+
+          mkdir -p app/src/main/java/com/rcinstaedit
+          mkdir -p app/src/main/res/values
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "RCINSTAEDIT"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m
+          android.useAndroidX=false
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.rcinstaedit'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.rcinstaedit'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 3
+                  versionName "1.2"
+              }
+          }
+          EOF
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme"
+                  parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:statusBarColor">#0B0B0F</item>
+                  <item name="android:navigationBarColor">#0B0B0F</item>
+                  <item name="android:windowLightStatusBar">false</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+
+              <application
+                  android:theme="@style/AppTheme"
+                  android:label="RCINSTAEDIT"
+                  android:allowBackup="false"
+                  android:supportsRtl="true">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="true">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/rcinstaedit/MainActivity.java <<'EOF'
+          package com.rcinstaedit;
+
+          import android.app.Activity;
+          import android.content.ContentValues;
+          import android.content.Intent;
+          import android.graphics.Bitmap;
+          import android.graphics.Canvas;
+          import android.graphics.Color;
+          import android.graphics.ColorMatrix;
+          import android.graphics.ColorMatrixColorFilter;
+          import android.graphics.Matrix;
+          import android.graphics.Paint;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Environment;
+          import android.provider.MediaStore;
+          import android.view.Gravity;
+          import android.widget.ImageView;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.SeekBar;
+          import android.widget.TextView;
+          import android.widget.Toast;
+          import android.widget.VideoView;
+          import android.widget.MediaController;
+
+          import java.io.OutputStream;
+
+          public class MainActivity extends Activity {
+
+              LinearLayout root;
+              ImageView image;
+
+              Bitmap original;
+              Bitmap edited;
+
+              float brightness = 0;
+              float contrast = 1f;
+              float saturation = 1f;
+              float warmth = 0;
+
+              final int BG = Color.rgb(11,11,15);
+              final int CARD = Color.rgb(30,30,38);
+
+              int dp(float v) {
+                  return (int)(v * getResources()
+                          .getDisplayMetrics().density + .5f);
+              }
+
+              @Override
+              protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  home();
+              }
+
+              TextView makeText(String s, float size) {
+                  TextView t = new TextView(this);
+                  t.setText(s);
+                  t.setTextColor(Color.WHITE);
+                  t.setTextSize(size);
+                  t.setGravity(Gravity.CENTER);
+                  t.setPadding(dp(12),dp(8),dp(12),dp(8));
+                  return t;
+              }
+
+              TextView card(String s) {
+                  TextView t = makeText(s,15);
+                  t.setMinHeight(dp(58));
+                  t.setBackgroundColor(CARD);
+
+                  LinearLayout.LayoutParams p =
+                          new LinearLayout.LayoutParams(-1,dp(58));
+
+                  p.setMargins(dp(12),dp(5),dp(12),dp(5));
+                  t.setLayoutParams(p);
+
+                  return t;
+              }
+
+              void page() {
+                  root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setBackgroundColor(BG);
+                  root.setPadding(0,dp(16),0,dp(20));
+
+                  ScrollView scroll = new ScrollView(this);
+                  scroll.setFillViewport(true);
+                  scroll.addView(root);
+
+                  setContentView(scroll);
+              }
+
+              void title(String s) {
+                  TextView t = makeText(s,25);
+                  t.setTypeface(null,1);
+                  root.addView(t,
+                          new LinearLayout.LayoutParams(-1,dp(65)));
+              }
+
+              void section(String s) {
+                  TextView t = makeText(s,18);
+                  t.setGravity(Gravity.CENTER_VERTICAL);
+                  t.setTypeface(null,1);
+                  root.addView(t,
+                          new LinearLayout.LayoutParams(-1,dp(55)));
+              }
+
+              TextView back() {
+                  TextView b = card("←   Back");
+                  b.setOnClickListener(v -> home());
+                  return b;
+              }
+
+              void home() {
+                  page();
+
+                  TextView logo = makeText("RCINSTAEDIT",30);
+                  logo.setTypeface(null,1);
+                  root.addView(logo,
+                          new LinearLayout.LayoutParams(-1,dp(70)));
+
+                  TextView sub =
+                          makeText("PHOTO  •  VIDEO  •  CREATE",14);
+
+                  root.addView(sub,
+                          new LinearLayout.LayoutParams(-1,dp(40)));
+
+                  section("CREATE");
+
+                  TextView photo = card("📷   Photo Editor");
+                  TextView video = card("🎬   Video Editor");
+                  TextView filters = card("✨   Filters & Effects");
+                  TextView transitions = card("↔   Transitions");
+
+                  root.addView(photo);
+                  root.addView(video);
+                  root.addView(filters);
+                  root.addView(transitions);
+
+                  photo.setOnClickListener(v -> pick("image/*",100));
+                  video.setOnClickListener(v -> pick("video/*",200));
+                  filters.setOnClickListener(v -> photoFilters());
+                  transitions.setOnClickListener(v -> transitions());
+              }
+
+              void pick(String type,int code) {
+                  Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                  i.setType(type);
+                  i.addCategory(Intent.CATEGORY_OPENABLE);
+                  startActivityForResult(i,code);
+              }
+
+              @Override
+              protected void onActivityResult(
+                      int request,int result,Intent data) {
+
+                  super.onActivityResult(request,result,data);
+
+                  if(result != RESULT_OK || data == null)
+                      return;
+
+                  Uri uri = data.getData();
+
+                  if(request == 100) {
+                      try {
+                          original =
+                                  MediaStore.Images.Media.getBitmap(
+                                          getContentResolver(),uri);
+
+                          edited = original.copy(
+                                  Bitmap.Config.ARGB_8888,true);
+
+                          photoEditor();
+
+                      } catch(Exception e) {
+                          toast("Photo open failed");
+                      }
+                  }
+
+                  if(request == 200) {
+                      videoEditor(uri);
+                  }
+              }
+
+              void photoEditor() {
+                  page();
+                  title("PHOTO EDITOR");
+
+                  image = new ImageView(this);
+                  image.setImageBitmap(edited);
+                  image.setAdjustViewBounds(true);
+                  image.setScaleType(
+                          ImageView.ScaleType.FIT_CENTER);
+
+                  root.addView(image,
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(350)));
+
+                  section("EDIT");
+
+                  TextView adjust = card("🎚   Adjust");
+                  TextView filters = card("✨   Filters");
+                  TextView transform =
+                          card("↻   Rotate / Flip");
+                  TextView reset =
+                          card("↶   Restore Original");
+                  TextView save =
+                          card("💾   Save Photo");
+
+                  root.addView(adjust);
+                  root.addView(filters);
+                  root.addView(transform);
+                  root.addView(reset);
+                  root.addView(save);
+
+                  adjust.setOnClickListener(v -> adjust());
+                  filters.setOnClickListener(v -> photoFilters());
+                  transform.setOnClickListener(v -> transform());
+                  reset.setOnClickListener(v -> resetPhoto());
+                  save.setOnClickListener(v -> savePhoto());
+
+                  root.addView(back());
+              }
+
+              interface Change {
+                  void value(int v);
+              }
+
+              void slider(
+                      String name,
+                      int min,
+                      int max,
+                      int start,
+                      Change change) {
+
+                  TextView label = makeText(name,14);
+                  label.setGravity(Gravity.CENTER_VERTICAL);
+
+                  root.addView(label,
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(38)));
+
+                  SeekBar bar = new SeekBar(this);
+                  bar.setMax(max-min);
+                  bar.setProgress(start-min);
+
+                  bar.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                      public void onProgressChanged(
+                              SeekBar s,int p,boolean user) {
+                          change.value(p+min);
+                      }
+
+                      public void onStartTrackingTouch(SeekBar s) {}
+                      public void onStopTrackingTouch(SeekBar s) {}
+                  });
+
+                  root.addView(bar,
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(48)));
+              }
+
+              void adjust() {
+                  page();
+                  title("ADJUST");
+
+                  slider("Brightness",-100,100,0,v -> {
+                      brightness = v;
+                      apply();
+                  });
+
+                  slider("Contrast",50,150,100,v -> {
+                      contrast = v/100f;
+                      apply();
+                  });
+
+                  slider("Saturation",0,200,100,v -> {
+                      saturation = v/100f;
+                      apply();
+                  });
+
+                  slider("Warmth",-100,100,0,v -> {
+                      warmth = v;
+                      apply();
+                  });
+
+                  section("ADVANCED");
+
+                  root.addView(makeText(
+                          "Exposure • Highlights • Shadows • Sharpness • Vignette",
+                          13));
+
+                  root.addView(makeText(
+                          "Advanced controls next processing stage mein.",
+                          12));
+
+                  root.addView(back());
+              }
+
+              void apply() {
+                  if(original == null || image == null)
+                      return;
+
+                  ColorMatrix cm = new ColorMatrix();
+
+                  ColorMatrix sat = new ColorMatrix();
+                  sat.setSaturation(saturation);
+                  cm.postConcat(sat);
+
+                  float c = contrast;
+                  float shift = 128f*(1f-c)+brightness;
+
+                  ColorMatrix con = new ColorMatrix(
+                          new float[]{
+                                  c,0,0,0,shift,
+                                  0,c,0,0,shift,
+                                  0,0,c,0,shift,
+                                  0,0,0,1,0
+                          });
+
+                  cm.postConcat(con);
+
+                  float w = warmth;
+
+                  ColorMatrix warm = new ColorMatrix(
+                          new float[]{
+                                  1,0,0,0,w,
+                                  0,1,0,0,0,
+                                  0,0,1,0,-w,
+                                  0,0,0,1,0
+                          });
+
+                  cm.postConcat(warm);
+
+                  edited = Bitmap.createBitmap(
+                          original.getWidth(),
+                          original.getHeight(),
+                          Bitmap.Config.ARGB_8888);
+
+                  Canvas canvas = new Canvas(edited);
+                  Paint paint = new Paint();
+
+                  paint.setColorFilter(
+                          new ColorMatrixColorFilter(cm));
+
+                  canvas.drawBitmap(original,0,0,paint);
+                  image.setImageBitmap(edited);
+              }
+
+              void photoFilters() {
+                  page();
+                  title("FILTERS");
+
+                  String[] names = {
+                          "Original",
+                          "Black & White",
+                          "Cinematic",
+                          "Vintage",
+                          "Cool",
+                          "Warm",
+                          "Dramatic",
+                          "Fade"
+                  };
+
+                  for(String n:names) {
+                      TextView f = card(n);
+                      root.addView(f);
+                      f.setOnClickListener(v -> filter(n));
+                  }
+
+                  root.addView(back());
+              }
+
+              void filter(String name) {
+                  if(original == null)
+                      return;
+
+                  ColorMatrix cm = new ColorMatrix();
+
+                  if(name.equals("Black & White")) {
+                      cm.setSaturation(0);
+
+                  } else if(name.equals("Cool")) {
+                      cm.set(new float[]{
+                              1,0,0,0,-5,
+                              0,1,0,0,0,
+                              0,0,1,0,18,
+                              0,0,0,1,0
+                      });
+
+                  } else if(name.equals("Warm")) {
+                      cm.set(new float[]{
+                              1,0,0,0,18,
+                              0,1,0,0,5,
+                              0,0,1,0,-8,
+                              0,0,0,1,0
+                      });
+
+                  } else if(name.equals("Vintage")) {
+                      cm.set(new float[]{
+                              .90f,0,0,0,20,
+                              0,.84f,0,0,15,
+                              0,0,.72f,0,5,
+                              0,0,0,1,0
+                      });
+
+                  } else if(name.equals("Dramatic")) {
+                      cm.set(new float[]{
+                              1.20f,0,0,0,-25,
+                              0,1.20f,0,0,-25,
+                              0,0,1.20f,0,-25,
+                              0,0,0,1,0
+                      });
+
+                  } else if(name.equals("Fade")) {
+                      cm.set(new float[]{
+                              .85f,0,0,0,25,
+                              0,.85f,0,0,25,
+                              0,0,.85f,0,25,
+                              0,0,0,1,0
+                      });
+                  }
+
+                  edited = Bitmap.createBitmap(
+                          original.getWidth(),
+                          original.getHeight(),
+                          Bitmap.Config.ARGB_8888);
+
+                  Canvas canvas = new Canvas(edited);
+                  Paint paint = new Paint();
+
+                  paint.setColorFilter(
+                          new ColorMatrixColorFilter(cm));
+
+                  canvas.drawBitmap(original,0,0,paint);
+
+                  if(image != null)
+                      image.setImageBitmap(edited);
+              }
+
+              void transform() {
+                  page();
+                  title("TRANSFORM");
+
+                  TextView rotate = card("↻   Rotate 90°");
+                  TextView h = card("↔   Flip Horizontal");
+                  TextView v = card("↕   Flip Vertical");
+
+                  root.addView(rotate);
+                  root.addView(h);
+                  root.addView(v);
+
+                  rotate.setOnClickListener(x -> rotatePhoto());
+                  h.setOnClickListener(x -> flip(true));
+                  v.setOnClickListener(x -> flip(false));
+
+                  root.addView(back());
+              }
+
+              void rotatePhoto() {
+                  Matrix m = new Matrix();
+                  m.postRotate(90);
+
+                  edited = Bitmap.createBitmap(
+                          edited,0,0,
+                          edited.getWidth(),
+                          edited.getHeight(),
+                          m,true);
+
+                  image.setImageBitmap(edited);
+              }
+
+              void flip(boolean horizontal) {
+                  Matrix m = new Matrix();
+
+                  if(horizontal)
+                      m.setScale(-1,1);
+                  else
+                      m.setScale(1,-1);
+
+                  edited = Bitmap.createBitmap(
+                          edited,0,0,
+                          edited.getWidth(),
+                          edited.getHeight(),
+                          m,true);
+
+                  image.setImageBitmap(edited);
+              }
+
+              void resetPhoto() {
+                  brightness = 0;
+                  contrast = 1f;
+                  saturation = 1f;
+                  warmth = 0;
+
+                  edited = original.copy(
+                          Bitmap.Config.ARGB_8888,true);
+
+                  image.setImageBitmap(edited);
+                  toast("Original restored ✓");
+              }
+
+              void savePhoto() {
+                  try {
+                      ContentValues values = new ContentValues();
+
+                      values.put(
+                              MediaStore.Images.Media.DISPLAY_NAME,
+                              "RCINSTAEDIT_" +
+                              System.currentTimeMillis() +
+                              ".jpg");
+
+                      values.put(
+                              MediaStore.Images.Media.MIME_TYPE,
+                              "image/jpeg");
+
+                      if(Build.VERSION.SDK_INT >= 29) {
+                          values.put(
+                                  MediaStore.Images.Media.RELATIVE_PATH,
+                                  Environment.DIRECTORY_PICTURES +
+                                  "/RCINSTAEDIT");
+                      }
+
+                      Uri uri = getContentResolver().insert(
+                              MediaStore.Images.Media
+                                      .EXTERNAL_CONTENT_URI,
+                              values);
+
+                      OutputStream out =
+                              getContentResolver()
+                                      .openOutputStream(uri);
+
+                      edited.compress(
+                              Bitmap.CompressFormat.JPEG,
+                              95,
+                              out);
+
+                      out.close();
+
+                      toast("Photo saved ✓");
+
+                  } catch(Exception e) {
+                      toast("Save failed");
+                  }
+              }
+
+              void videoEditor(Uri uri) {
+                  page();
+                  title("VIDEO EDITOR");
+
+                  VideoView video = new VideoView(this);
+                  video.setVideoURI(uri);
+
+                  MediaController controller =
+                          new MediaController(this);
+
+                  video.setMediaController(controller);
+                  controller.setAnchorView(video);
+
+                  root.addView(video,
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(350)));
+
+                  video.start();
+
+                  section("VIDEO TOOLS");
+
+                  String[] tools = {
+                          "✂   Trim",
+                          "✂   Split",
+                          "⚡   Speed",
+                          "▣   Crop",
+                          "↻   Rotate",
+                          "↔   Reverse",
+                          "✨   Filters",
+                          "🎚   Adjust",
+                          "↔   Transitions",
+                          "🎬   Export 1080p"
+                  };
+
+                  for(String tool:tools) {
+                      TextView t = card(tool);
+                      root.addView(t);
+                      t.setOnClickListener(
+                              v -> videoTool(tool));
+                  }
+
+                  root.addView(back());
+              }
+
+              void videoTool(String name) {
+                  toast(name + " — next video engine stage");
+              }
+
+              void transitions() {
+                  page();
+                  title("TRANSITIONS");
+
+                  String[] names = {
+                          "Fade",
+                          "Slide Left",
+                          "Slide Right",
+                          "Zoom",
+                          "Flash",
+                          "Blur",
+                          "Wipe"
+                  };
+
+                  for(String n:names) {
+                      TextView t = card(n);
+                      root.addView(t);
+                      t.setOnClickListener(
+                              v -> toast(n+" selected"));
+                  }
+
+                  root.addView(back());
+              }
+
+              void toast(String s) {
+                  Toast.makeText(
+                          this,s,Toast.LENGTH_SHORT).show();
+              }
+          }
+          EOF
+
+      - name: Verify Project
+        shell: bash
+        run: |
+          test -f app/build.gradle
+          test -f app/src/main/java/com/rcinstaedit/MainActivity.java
+          echo "Android project verified"
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -e
+          gradle wrapper --gradle-version 8.9
+          ./gradlew clean assembleDebug --no-daemon --stacktrace
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCINSTAEDIT-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
