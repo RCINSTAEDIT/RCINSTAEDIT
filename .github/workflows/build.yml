@@ -1,1 +1,3345 @@
+name: RCINSTAEDIT APK
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Create Android Project
+        shell: bash
+        run: |
+          set -e
+
+          rm -rf app build .gradle gradle
+          rm -f build.gradle settings.gradle gradle.properties
+
+          mkdir -p app/src/main/java/com/rcinstaedit
+          mkdir -p app/src/main/res/values
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "RCINSTAEDIT"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=false
+          android.nonTransitiveRClass=true
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.rcinstaedit'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.rcinstaedit'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName "5.0"
+              }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:statusBarColor">#0E0F14</item>
+                  <item name="android:navigationBarColor">#0E0F14</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:colorAccent">#7C4DFF</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <application
+                  android:allowBackup="true"
+                  android:label="RCINSTAEDIT"
+                  android:theme="@style/AppTheme"
+                  android:enableOnBackInvokedCallback="true"
+                  android:supportsRtl="true">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="true">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+
+                  </activity>
+
+              </application>
+
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/rcinstaedit/MainActivity.java <<'EOF'
+          package com.rcinstaedit;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.os.Build;
+          import android.content.Intent;
+          import android.content.ContentValues;
+          import android.graphics.Bitmap;
+          import android.graphics.BitmapFactory;
+          import android.graphics.Canvas;
+          import android.graphics.Color;
+          import android.graphics.ColorMatrix;
+          import android.graphics.ColorMatrixColorFilter;
+          import android.graphics.Matrix;
+          import android.graphics.Paint;
+          import android.graphics.RadialGradient;
+          import android.graphics.Shader;
+          import android.net.Uri;
+          import android.provider.MediaStore;
+          import android.view.Gravity;
+          import android.view.MotionEvent;
+          import android.view.View;
+          import android.view.Window;
+          import android.view.WindowInsets;
+          import android.widget.FrameLayout;
+          import android.widget.ImageView;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.SeekBar;
+          import android.widget.TextView;
+          import android.widget.Toast;
+          import android.window.OnBackInvokedCallback;
+          import android.window.OnBackInvokedDispatcher;
+
+          import java.io.OutputStream;
+          import java.util.ArrayDeque;
+
+          public class MainActivity extends Activity {
+
+              private static final int PICK_IMAGE = 1001;
+              private static final int PICK_AUDIO = 1002;
+
+              private final ArrayDeque<String> screenStack =
+                      new ArrayDeque<>();
+
+              private String currentScreen = "home";
+
+              private Bitmap originalBitmap;
+              private Bitmap editedBitmap;
+
+              private ImageView previewImage;
+              private VignetteView vignetteView;
+
+              private float zoom = 1f;
+              private float dragX = 0f;
+              private float dragY = 0f;
+              private float lastX;
+              private float lastY;
+
+              private boolean beforePressed = false;
+
+              private String selectedFilter = "Original";
+              private int filterIntensity = 100;
+
+              private int brightness = 0;
+              private int exposure = 0;
+              private int brilliance = 0;
+              private int contrast = 0;
+              private int highlights = 0;
+              private int shadows = 0;
+              private int blackPoint = 0;
+              private int saturation = 0;
+              private int vibrance = 0;
+              private int warmth = 0;
+              private int tint = 0;
+              private int sharpness = 0;
+              private int definition = 0;
+              private int noiseReduction = 0;
+              private int fade = 0;
+              private int vignette = 0;
+              private int hue = 0;
+
+              interface SliderCallback {
+                  void onChanged(int value);
+              }
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  Window window = getWindow();
+
+                  window.setStatusBarColor(
+                          Color.rgb(14, 15, 20)
+                  );
+
+                  window.setNavigationBarColor(
+                          Color.rgb(14, 15, 20)
+                  );
+
+                  if (Build.VERSION.SDK_INT >= 33) {
+
+                      getOnBackInvokedDispatcher()
+                              .registerOnBackInvokedCallback(
+                                      OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                                      new OnBackInvokedCallback() {
+                                          @Override
+                                          public void onBackInvoked() {
+                                              goBack();
+                                          }
+                                      }
+                              );
+                  }
+
+                  renderScreen();
+              }
+
+              @Override
+              public void onBackPressed() {
+
+                  if (Build.VERSION.SDK_INT < 33) {
+                      goBack();
+                  } else {
+                      super.onBackPressed();
+                  }
+              }
+
+              private void goBack() {
+
+                  if (!screenStack.isEmpty()) {
+
+                      currentScreen =
+                              screenStack.pop();
+
+                      renderScreen();
+
+                  } else {
+
+                      finish();
+                  }
+              }
+
+              private void openScreen(String screen) {
+
+                  screenStack.push(
+                          currentScreen
+                  );
+
+                  currentScreen = screen;
+
+                  renderScreen();
+              }
+
+              private void renderScreen() {
+
+                  if ("home".equals(currentScreen)) {
+
+                      showHome();
+
+                  } else if ("photo".equals(currentScreen)) {
+
+                      showPhotoEditor();
+
+                  } else if ("adjust".equals(currentScreen)) {
+
+                      showAdjust();
+
+                  } else if ("filters".equals(currentScreen)) {
+
+                      showFilters();
+                  }
+              }
+
+              private void showHome() {
+
+                  LinearLayout root =
+                          baseColumn();
+
+                  TextView logo =
+                          text(
+                                  "RCINSTAEDIT",
+                                  30,
+                                  Color.WHITE
+                          );
+
+                  logo.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  root.addView(
+                          logo,
+                          lp(-1, 70)
+                  );
+
+                  TextView sub =
+                          text(
+                                  "Photo & Reel Editor",
+                                  16,
+                                  Color.LTGRAY
+                          );
+
+                  sub.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  root.addView(
+                          sub,
+                          lp(-1, 45)
+                  );
+
+                  addSpace(
+                          root,
+                          20
+                  );
+
+                  addTool(
+                          root,
+                          "📷  PHOTO EDITOR",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  openScreen("photo");
+                              }
+                          }
+                  );
+
+                  addTool(
+                          root,
+                          "🎬  VIDEO EDITOR",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  toast(
+                                          "Video editor next stage mein"
+                                  );
+                              }
+                          }
+                  );
+
+                  addTool(
+                          root,
+                          "🎵  ADD AUDIO FROM PHONE",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  pickAudio();
+                              }
+                          }
+                  );
+
+                  addTool(
+                          root,
+                          "✨  HIGH QUALITY EXPORT",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  toast(
+                                          "Photo Editor → Save Photo"
+                                  );
+                              }
+                          }
+                  );
+
+                  setContentViewWithInsets(root);
+              }
+
+              private void showPhotoEditor() {
+
+                  LinearLayout root =
+                          baseColumn();
+
+                  root.addView(
+                          topBar("Photo Editor")
+                  );
+
+                  FrameLayout previewBox =
+                          new FrameLayout(this);
+
+                  previewBox.setBackgroundColor(
+                          Color.BLACK
+                  );
+
+                  previewImage =
+                          new ImageView(this);
+
+                  previewImage.setScaleType(
+                          ImageView.ScaleType.FIT_CENTER
+                  );
+
+                  previewImage.setBackgroundColor(
+                          Color.BLACK
+                  );
+
+                  previewBox.addView(
+                          previewImage,
+                          new FrameLayout.LayoutParams(
+                                  -1,
+                                  -1
+                          )
+                  );
+
+                  vignetteView =
+                          new VignetteView(this);
+
+                  vignetteView.setStrength(
+                          vignette
+                  );
+
+                  previewBox.addView(
+                          vignetteView,
+                          new FrameLayout.LayoutParams(
+                                  -1,
+                                  -1
+                          )
+                  );
+
+                  root.addView(
+                          previewBox,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(285)
+                          )
+                  );
+
+                  setupPreviewTouch();
+
+                  TextView photoButton;
+
+                  if (originalBitmap == null) {
+
+                      photoButton =
+                              makeButton(
+                                      "📷  CHOOSE PHOTO"
+                              );
+
+                  } else {
+
+                      photoButton =
+                              makeButton(
+                                      "🔄  CHANGE PHOTO"
+                              );
+                  }
+
+                  photoButton.setOnClickListener(
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  pickImage();
+                              }
+                          }
+                  );
+
+                  root.addView(
+                          photoButton
+                  );
+
+                  LinearLayout quick =
+                          new LinearLayout(this);
+
+                  quick.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  addSmallButton(
+                          quick,
+                          "FIT",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+
+                                  zoom = 1f;
+                                  dragX = 0f;
+                                  dragY = 0f;
+
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSmallButton(
+                          quick,
+                          "1:1",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+
+                                  zoom = 2f;
+
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  TextView before =
+                          makeButton(
+                                  "HOLD: BEFORE"
+                          );
+
+                  before.setTextSize(13);
+
+                  before.setOnTouchListener(
+                          new View.OnTouchListener() {
+
+                              @Override
+                              public boolean onTouch(
+                                      View v,
+                                      MotionEvent e
+                              ) {
+
+                                  if (e.getAction() ==
+                                          MotionEvent.ACTION_DOWN) {
+
+                                      beforePressed =
+                                              true;
+
+                                      showBefore();
+
+                                      return true;
+                                  }
+
+                                  if (e.getAction() ==
+                                          MotionEvent.ACTION_UP ||
+                                          e.getAction() ==
+                                                  MotionEvent.ACTION_CANCEL) {
+
+                                      beforePressed =
+                                              false;
+
+                                      updatePreview();
+
+                                      return true;
+                                  }
+
+                                  return true;
+                              }
+                          }
+                  );
+
+                  quick.addView(
+                          before,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(48),
+                                  1
+                          )
+                  );
+
+                  root.addView(
+                          quick,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(58)
+                          )
+                  );
+
+                  ScrollView scroll =
+                          new ScrollView(this);
+
+                  LinearLayout tools =
+                          new LinearLayout(this);
+
+                  tools.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  tools.setPadding(
+                          dp(12),
+                          dp(4),
+                          dp(12),
+                          dp(25)
+                  );
+
+                  addTool(
+                          tools,
+                          "🎚  ADJUST",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+
+                                  if (hasPhoto()) {
+                                      openScreen("adjust");
+                                  }
+                              }
+                          }
+                  );
+
+                  addTool(
+                          tools,
+                          "🎨  FILTERS",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+
+                                  if (hasPhoto()) {
+                                      openScreen("filters");
+                                  }
+                              }
+                          }
+                  );
+
+                  addTool(
+                          tools,
+                          "↪  ROTATE 90°",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  rotate90();
+                              }
+                          }
+                  );
+
+                  addTool(
+                          tools,
+                          "↔  FLIP HORIZONTAL",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  flipHorizontal();
+                              }
+                          }
+                  );
+
+                  addTool(
+                          tools,
+                          "↕  FLIP VERTICAL",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  flipVertical();
+                              }
+                          }
+                  );
+
+                  addTool(
+                          tools,
+                          "✂  CENTER CROP",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  centerCrop();
+                              }
+                          }
+                  );
+
+                  addTool(
+                          tools,
+                          "↺  RESET",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  resetPhoto();
+                              }
+                          }
+                  );
+
+                  addTool(
+                          tools,
+                          "💾  SAVE PHOTO",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  savePhoto();
+                              }
+                          }
+                  );
+
+                  scroll.addView(
+                          tools
+                  );
+
+                  root.addView(
+                          scroll,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  0,
+                                  1
+                          )
+                  );
+
+                  updatePreview();
+
+                  setContentViewWithInsets(
+                          root
+                  );
+              }
+
+              private void showAdjust() {
+
+                  LinearLayout root =
+                          baseColumn();
+
+                  root.addView(
+                          topBar("Adjust")
+                  );
+
+                  FrameLayout previewBox =
+                          new FrameLayout(this);
+
+                  previewBox.setBackgroundColor(
+                          Color.BLACK
+                  );
+
+                  previewImage =
+                          new ImageView(this);
+
+                  previewImage.setScaleType(
+                          ImageView.ScaleType.FIT_CENTER
+                  );
+
+                  previewBox.addView(
+                          previewImage,
+                          new FrameLayout.LayoutParams(
+                                  -1,
+                                  -1
+                          )
+                  );
+
+                  vignetteView =
+                          new VignetteView(this);
+
+                  vignetteView.setStrength(
+                          vignette
+                  );
+
+                  previewBox.addView(
+                          vignetteView,
+                          new FrameLayout.LayoutParams(
+                                  -1,
+                                  -1
+                          )
+                  );
+
+                  root.addView(
+                          previewBox,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(285)
+                          )
+                  );
+
+                  setupPreviewTouch();
+
+                  ScrollView scroll =
+                          new ScrollView(this);
+
+                  LinearLayout controls =
+                          new LinearLayout(this);
+
+                  controls.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  controls.setPadding(
+                          dp(14),
+                          dp(6),
+                          dp(14),
+                          dp(30)
+                  );
+
+                  addSection(
+                          controls,
+                          "LIGHT"
+                  );
+
+                  addSlider(
+                          controls,
+                          "Brightness",
+                          -100,
+                          100,
+                          brightness,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  brightness = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Exposure",
+                          -100,
+                          100,
+                          exposure,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  exposure = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Brilliance",
+                          -100,
+                          100,
+                          brilliance,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  brilliance = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Contrast",
+                          -100,
+                          100,
+                          contrast,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  contrast = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Highlights",
+                          -100,
+                          100,
+                          highlights,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  highlights = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Shadows",
+                          -100,
+                          100,
+                          shadows,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  shadows = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Black Point",
+                          -100,
+                          100,
+                          blackPoint,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  blackPoint = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSection(
+                          controls,
+                          "COLOR"
+                  );
+
+                  addSlider(
+                          controls,
+                          "Saturation",
+                          -100,
+                          100,
+                          saturation,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  saturation = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Vibrance",
+                          -100,
+                          100,
+                          vibrance,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  vibrance = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Warmth",
+                          -100,
+                          100,
+                          warmth,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  warmth = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Tint",
+                          -100,
+                          100,
+                          tint,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  tint = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Hue",
+                          -100,
+                          100,
+                          hue,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  hue = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSection(
+                          controls,
+                          "DETAIL"
+                  );
+
+                  addSlider(
+                          controls,
+                          "Sharpness",
+                          0,
+                          100,
+                          sharpness,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  sharpness = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Definition",
+                          0,
+                          100,
+                          definition,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  definition = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Noise Reduction",
+                          0,
+                          100,
+                          noiseReduction,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  noiseReduction = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSection(
+                          controls,
+                          "EFFECTS"
+                  );
+
+                  addSlider(
+                          controls,
+                          "Fade",
+                          0,
+                          100,
+                          fade,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  fade = value;
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addSlider(
+                          controls,
+                          "Vignette",
+                          0,
+                          100,
+                          vignette,
+                          new SliderCallback() {
+                              @Override
+                              public void onChanged(int value) {
+                                  vignette = value;
+
+                                  if (vignetteView != null) {
+                                      vignetteView.setStrength(
+                                              vignette
+                                      );
+                                  }
+
+                                  updatePreview();
+                              }
+                          }
+                  );
+
+                  addTool(
+                          controls,
+                          "↺  RESET ALL ADJUSTMENTS",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  resetAdjustments();
+                              }
+                          }
+                  );
+
+                  scroll.addView(
+                          controls
+                  );
+
+                  root.addView(
+                          scroll,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  0,
+                                  1
+                          )
+                  );
+
+                  updatePreview();
+
+                  setContentViewWithInsets(
+                          root
+                  );
+              }
+
+              private void addSection(
+                      LinearLayout parent,
+                      String title
+              ) {
+
+                  TextView section =
+                          text(
+                                  title,
+                                  13,
+                                  Color.rgb(
+                                          170,
+                                          145,
+                                          255
+                                  )
+                          );
+
+                  section.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  section.setPadding(
+                          0,
+                          dp(12),
+                          0,
+                          0
+                  );
+
+                  parent.addView(
+                          section,
+                          lp(-1, 45)
+                  );
+              }
+
+              private void addSlider(
+                      LinearLayout parent,
+                      final String title,
+                      int min,
+                      int max,
+                      int initial,
+                      final SliderCallback callback
+              ) {
+
+                  TextView label =
+                          text(
+                                  title +
+                                          ": " +
+                                          initial,
+                                  15,
+                                  Color.WHITE
+                          );
+
+                  label.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  parent.addView(
+                          label,
+                          lp(-1, 42)
+                  );
+
+                  SeekBar bar =
+                          new SeekBar(this);
+
+                  bar.setMax(
+                          max - min
+                  );
+
+                  bar.setProgress(
+                          initial - min
+                  );
+
+                  bar.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                              @Override
+                              public void onProgressChanged(
+                                      SeekBar seekBar,
+                                      int progress,
+                                      boolean fromUser
+                              ) {
+
+                                  int value =
+                                          progress;
+
+                                  callback.onChanged(
+                                          value
+                                  );
+
+                                  label.setText(
+                                          title +
+                                                  ": " +
+                                                  value
+                                  );
+                              }
+
+                              @Override
+                              public void onStartTrackingTouch(
+                                      SeekBar seekBar
+                              ) {
+                              }
+
+                              @Override
+                              public void onStopTrackingTouch(
+                                      SeekBar seekBar
+                              ) {
+                              }
+                          }
+                  );
+
+                  bar.setProgress(
+                          initial - min
+                  );
+
+                  parent.addView(
+                          bar,
+                          lp(-1, 55)
+                  );
+              }
+
+              private void showFilters() {
+
+                  LinearLayout root =
+                          baseColumn();
+
+                  root.addView(
+                          topBar("Filters")
+                  );
+
+                  FrameLayout previewBox =
+                          new FrameLayout(this);
+
+                  previewBox.setBackgroundColor(
+                          Color.BLACK
+                  );
+
+                  previewImage =
+                          new ImageView(this);
+
+                  previewImage.setScaleType(
+                          ImageView.ScaleType.FIT_CENTER
+                  );
+
+                  previewBox.addView(
+                          previewImage,
+                          new FrameLayout.LayoutParams(
+                                  -1,
+                                  -1
+                          )
+                  );
+
+                  vignetteView =
+                          new VignetteView(this);
+
+                  vignetteView.setStrength(
+                          vignette
+                  );
+
+                  previewBox.addView(
+                          vignetteView,
+                          new FrameLayout.LayoutParams(
+                                  -1,
+                                  -1
+                          )
+                  );
+
+                  root.addView(
+                          previewBox,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(285)
+                          )
+                  );
+
+                  setupPreviewTouch();
+
+                  TextView name =
+                          text(
+                                  "FILTER: " +
+                                          selectedFilter,
+                                  15,
+                                  Color.WHITE
+                          );
+
+                  name.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  root.addView(
+                          name,
+                          lp(-1, 45)
+                  );
+
+                  ScrollView scroll =
+                          new ScrollView(this);
+
+                  LinearLayout content =
+                          new LinearLayout(this);
+
+                  content.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  content.setPadding(
+                          dp(12),
+                          dp(4),
+                          dp(12),
+                          dp(30)
+                  );
+
+                  String[] filters = {
+                          "Original",
+                          "Vivid",
+                          "Vivid Warm",
+                          "Vivid Cool",
+                          "Dramatic",
+                          "Dramatic Warm",
+                          "Dramatic Cool",
+                          "Mono",
+                          "Silvertone",
+                          "Noir",
+                          "Warm",
+                          "Cool",
+                          "Fade"
+                  };
+
+                  for (final String filter :
+                          filters) {
+
+                      TextView button =
+                              makeButton(
+                                      filter
+                              );
+
+                      button.setOnClickListener(
+                              new View.OnClickListener() {
+                                  @Override
+                                  public void onClick(View v) {
+
+                                      selectedFilter =
+                                              filter;
+
+                                      name.setText(
+                                              "FILTER: " +
+                                                      selectedFilter
+                                      );
+
+                                      updatePreview();
+                                  }
+                              }
+                      );
+
+                      content.addView(
+                              button
+                      );
+                  }
+
+                  TextView intensityText =
+                          text(
+                                  "Intensity: " +
+                                          filterIntensity +
+                                          "%",
+                                  15,
+                                  Color.WHITE
+                          );
+
+                  intensityText.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  content.addView(
+                          intensityText,
+                          lp(-1, 45)
+                  );
+
+                  SeekBar intensity =
+                          new SeekBar(this);
+
+                  intensity.setMax(100);
+
+                  intensity.setProgress(
+                          filterIntensity
+                  );
+
+                  intensity.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                              @Override
+                              public void onProgressChanged(
+                                      SeekBar seekBar,
+                                      int progress,
+                                      boolean fromUser
+                              ) {
+
+                                  filterIntensity =
+                                          progress;
+
+                                  intensityText.setText(
+                                          "Intensity: " +
+                                                  filterIntensity +
+                                                  "%"
+                                  );
+
+                                  updatePreview();
+                              }
+
+                              @Override
+                              public void onStartTrackingTouch(
+                                      SeekBar seekBar
+                              ) {
+                              }
+
+                              @Override
+                              public void onStopTrackingTouch(
+                                      SeekBar seekBar
+                              ) {
+                              }
+                          }
+                  );
+
+                  content.addView(
+                          intensity,
+                          lp(-1, 55)
+                  );
+
+                  addTool(
+                          content,
+                          "✓  DONE",
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  goBack();
+                              }
+                          }
+                  );
+
+                  scroll.addView(
+                          content
+                  );
+
+                  root.addView(
+                          scroll,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  0,
+                                  1
+                          )
+                  );
+
+                  updatePreview();
+
+                  setContentViewWithInsets(
+                          root
+                  );
+              }
+
+              private void updatePreview() {
+
+                  if (previewImage == null) {
+                      return;
+                  }
+
+                  Bitmap source =
+                          editedBitmap != null
+                                  ? editedBitmap
+                                  : originalBitmap;
+
+                  if (source == null) {
+
+                      previewImage.setImageDrawable(
+                              null
+                      );
+
+                      previewImage.clearColorFilter();
+
+                      return;
+                  }
+
+                  if (beforePressed) {
+
+                      previewImage.setImageBitmap(
+                              originalBitmap
+                      );
+
+                      previewImage.clearColorFilter();
+
+                  } else {
+
+                      previewImage.setImageBitmap(
+                              source
+                      );
+
+                      ColorMatrix matrix =
+                              buildCombinedMatrix();
+
+                      if (matrix == null) {
+
+                          previewImage.clearColorFilter();
+
+                      } else {
+
+                          previewImage.setColorFilter(
+                                  new ColorMatrixColorFilter(
+                                          matrix
+                                  )
+                          );
+                      }
+                  }
+
+                  previewImage.setScaleX(
+                          zoom
+                  );
+
+                  previewImage.setScaleY(
+                          zoom
+                  );
+
+                  previewImage.setTranslationX(
+                          dragX
+                  );
+
+                  previewImage.setTranslationY(
+                          dragY
+                  );
+
+                  if (vignetteView != null) {
+
+                      vignetteView.setStrength(
+                              beforePressed
+                                      ? 0
+                                      : vignette
+                      );
+                  }
+              }
+
+              private ColorMatrix buildCombinedMatrix() {
+
+                  ColorMatrix result =
+                          new ColorMatrix();
+
+                  boolean changed = false;
+
+                  if (brightness != 0) {
+
+                      float b =
+                              brightness * 2.0f;
+
+                      result.postConcat(
+                              offsetMatrix(
+                                      b,
+                                      b,
+                                      b
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (exposure != 0) {
+
+                      float factor =
+                              1f +
+                                      exposure /
+                                              100f *
+                                              0.8f;
+
+                      result.postConcat(
+                              contrastMatrix(
+                                      factor
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (brilliance != 0) {
+
+                      float factor =
+                              1f +
+                                      brilliance /
+                                              100f *
+                                              0.18f;
+
+                      result.postConcat(
+                              contrastMatrix(
+                                      factor
+                              )
+                      );
+
+                      float b =
+                              brilliance *
+                                      0.55f;
+
+                      result.postConcat(
+                              offsetMatrix(
+                                      b,
+                                      b,
+                                      b
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (contrast != 0) {
+
+                      float factor =
+                              1f +
+                                      contrast /
+                                              100f;
+
+                      result.postConcat(
+                              contrastMatrix(
+                                      factor
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (highlights != 0) {
+
+                      float h =
+                              highlights *
+                                      0.55f;
+
+                      result.postConcat(
+                              offsetMatrix(
+                                      h,
+                                      h,
+                                      h
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (shadows != 0) {
+
+                      float s =
+                              shadows *
+                                      0.75f;
+
+                      result.postConcat(
+                              offsetMatrix(
+                                      s,
+                                      s,
+                                      s
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (blackPoint != 0) {
+
+                      float factor =
+                              1f +
+                                      blackPoint /
+                                              100f *
+                                              0.35f;
+
+                      result.postConcat(
+                              contrastMatrix(
+                                      factor
+                              )
+                      );
+
+                      result.postConcat(
+                              offsetMatrix(
+                                      -blackPoint *
+                                              0.35f,
+                                      -blackPoint *
+                                              0.35f,
+                                      -blackPoint *
+                                              0.35f
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (saturation != 0) {
+
+                      ColorMatrix sat =
+                              new ColorMatrix();
+
+                      sat.setSaturation(
+                              1f +
+                                      saturation /
+                                              100f
+                      );
+
+                      result.postConcat(
+                              sat
+                      );
+
+                      changed = true;
+                  }
+
+                  if (vibrance != 0) {
+
+                      ColorMatrix vib =
+                              new ColorMatrix();
+
+                      vib.setSaturation(
+                              1f +
+                                      vibrance /
+                                              100f *
+                                              0.65f
+                      );
+
+                      result.postConcat(
+                              vib
+                      );
+
+                      changed = true;
+                  }
+
+                  if (warmth != 0) {
+
+                      float w =
+                              warmth /
+                                      100f;
+
+                      result.postConcat(
+                              offsetMatrix(
+                                      w * 20f,
+                                      w * 4f,
+                                      -w * 20f
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (tint != 0) {
+
+                      float t =
+                              tint /
+                                      100f;
+
+                      result.postConcat(
+                              offsetMatrix(
+                                      t * 12f,
+                                      -t * 8f,
+                                      t * 15f
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (sharpness != 0) {
+
+                      float factor =
+                              1f +
+                                      sharpness /
+                                              100f *
+                                              0.30f;
+
+                      result.postConcat(
+                              contrastMatrix(
+                                      factor
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (definition != 0) {
+
+                      float factor =
+                              1f +
+                                      definition /
+                                              100f *
+                                              0.25f;
+
+                      result.postConcat(
+                              contrastMatrix(
+                                      factor
+                              )
+                      );
+
+                      ColorMatrix sat =
+                              new ColorMatrix();
+
+                      sat.setSaturation(
+                              1f +
+                                      definition /
+                                              100f *
+                                              0.10f
+                      );
+
+                      result.postConcat(
+                              sat
+                      );
+
+                      changed = true;
+                  }
+
+                  if (noiseReduction != 0) {
+
+                      float factor =
+                              1f -
+                                      noiseReduction /
+                                              100f *
+                                              0.12f;
+
+                      result.postConcat(
+                              contrastMatrix(
+                                      factor
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (fade != 0) {
+
+                      float f =
+                              fade /
+                                      100f;
+
+                      result.postConcat(
+                              contrastMatrix(
+                                      1f -
+                                              f *
+                                                      0.22f
+                              )
+                      );
+
+                      result.postConcat(
+                              offsetMatrix(
+                                      20f * f,
+                                      20f * f,
+                                      20f * f
+                              )
+                      );
+
+                      changed = true;
+                  }
+
+                  if (hue != 0) {
+
+                      ColorMatrix hueMatrix =
+                              new ColorMatrix();
+
+                      hueMatrix.setRotate(
+                              0,
+                              hue *
+                                      0.45f
+                      );
+
+                      result.postConcat(
+                              hueMatrix
+                      );
+
+                      changed = true;
+                  }
+
+                  ColorMatrix filter =
+                          buildFilterMatrix();
+
+                  if (filter != null) {
+
+                      result.postConcat(
+                              filter
+                      );
+
+                      changed = true;
+                  }
+
+                  return changed
+                          ? result
+                          : null;
+              }
+
+              private ColorMatrix buildFilterMatrix() {
+
+                  if ("Original".equals(
+                          selectedFilter
+                  ) || filterIntensity <= 0) {
+
+                      return null;
+                  }
+
+                  float a =
+                          filterIntensity /
+                                  100f;
+
+                  ColorMatrix matrix =
+                          new ColorMatrix();
+
+                  if ("Vivid".equals(
+                          selectedFilter
+                  )) {
+
+                      ColorMatrix sat =
+                              new ColorMatrix();
+
+                      sat.setSaturation(
+                              1f +
+                                      0.45f * a
+                      );
+
+                      matrix.postConcat(
+                              sat
+                      );
+
+                      matrix.postConcat(
+                              contrastMatrix(
+                                      1f +
+                                              0.18f * a
+                              )
+                      );
+
+                  } else if ("Vivid Warm".equals(
+                          selectedFilter
+                  )) {
+
+                      ColorMatrix sat =
+                              new ColorMatrix();
+
+                      sat.setSaturation(
+                              1f +
+                                      0.42f * a
+                      );
+
+                      matrix.postConcat(
+                              sat
+                      );
+
+                      matrix.postConcat(
+                              contrastMatrix(
+                                      1f +
+                                              0.16f * a
+                              )
+                      );
+
+                      matrix.postConcat(
+                              offsetMatrix(
+                                      12f * a,
+                                      5f * a,
+                                      -7f * a
+                              )
+                      );
+
+                  } else if ("Vivid Cool".equals(
+                          selectedFilter
+                  )) {
+
+                      ColorMatrix sat =
+                              new ColorMatrix();
+
+                      sat.setSaturation(
+                              1f +
+                                      0.42f * a
+                      );
+
+                      matrix.postConcat(
+                              sat
+                      );
+
+                      matrix.postConcat(
+                              contrastMatrix(
+                                      1f +
+                                              0.16f * a
+                              )
+                      );
+
+                      matrix.postConcat(
+                              offsetMatrix(
+                                      -7f * a,
+                                      3f * a,
+                                      13f * a
+                              )
+                      );
+
+                  } else if ("Dramatic".equals(
+                          selectedFilter
+                  )) {
+
+                      ColorMatrix sat =
+                              new ColorMatrix();
+
+                      sat.setSaturation(
+                              1f +
+                                      0.12f * a
+                      );
+
+                      matrix.postConcat(
+                              sat
+                      );
+
+                      matrix.postConcat(
+                              contrastMatrix(
+                                      1f +
+                                              0.38f * a
+                              )
+                      );
+
+                  } else if ("Dramatic Warm".equals(
+                          selectedFilter
+                  )) {
+
+                      matrix.postConcat(
+                              contrastMatrix(
+                                      1f +
+                                              0.35f * a
+                              )
+                      );
+
+                      matrix.postConcat(
+                              offsetMatrix(
+                                      12f * a,
+                                      5f * a,
+                                      -8f * a
+                              )
+                      );
+
+                  } else if ("Dramatic Cool".equals(
+                          selectedFilter
+                  )) {
+
+                      matrix.postConcat(
+                              contrastMatrix(
+                                      1f +
+                                              0.35f * a
+                              )
+                      );
+
+                      matrix.postConcat(
+                              offsetMatrix(
+                                      -8f * a,
+                                      3f * a,
+                                      14f * a
+                              )
+                      );
+
+                  } else if ("Mono".equals(
+                          selectedFilter
+                  )) {
+
+                      ColorMatrix mono =
+                              new ColorMatrix();
+
+                      mono.setSaturation(
+                              0f
+                      );
+
+                      matrix.postConcat(
+                              mono
+                      );
+
+                  } else if ("Silvertone".equals(
+                          selectedFilter
+                  )) {
+
+                      ColorMatrix mono =
+                              new ColorMatrix();
+
+                      mono.setSaturation(
+                              0f
+                      );
+
+                      matrix.postConcat(
+                              mono
+                      );
+
+                      matrix.postConcat(
+                              contrastMatrix(
+                                      1f +
+                                              0.15f * a
+                              )
+                      );
+
+                      matrix.postConcat(
+                              offsetMatrix(
+                                      4f * a,
+                                      4f * a,
+                                      7f * a
+                              )
+                      );
+
+                  } else if ("Noir".equals(
+                          selectedFilter
+                  )) {
+
+                      ColorMatrix mono =
+                              new ColorMatrix();
+
+                      mono.setSaturation(
+                              0f
+                      );
+
+                      matrix.postConcat(
+                              mono
+                      );
+
+                      matrix.postConcat(
+                              contrastMatrix(
+                                      1f +
+                                              0.45f * a
+                              )
+                      );
+
+                      matrix.postConcat(
+                              offsetMatrix(
+                                      -10f * a,
+                                      -10f * a,
+                                      -10f * a
+                              )
+                      );
+
+                  } else if ("Warm".equals(
+                          selectedFilter
+                  )) {
+
+                      matrix.postConcat(
+                              offsetMatrix(
+                                      20f * a,
+                                      5f * a,
+                                      -12f * a
+                              )
+                      );
+
+                  } else if ("Cool".equals(
+                          selectedFilter
+                  )) {
+
+                      matrix.postConcat(
+                              offsetMatrix(
+                                      -10f * a,
+                                      3f * a,
+                                      20f * a
+                              )
+                      );
+
+                  } else if ("Fade".equals(
+                          selectedFilter
+                  )) {
+
+                      matrix.postConcat(
+                              contrastMatrix(
+                                      1f -
+                                              0.20f * a
+                              )
+                      );
+
+                      matrix.postConcat(
+                              offsetMatrix(
+                                      18f * a,
+                                      18f * a,
+                                      18f * a
+                              )
+                      );
+                  }
+
+                  return matrix;
+              }
+
+              private ColorMatrix contrastMatrix(
+                      float contrast
+              ) {
+
+                  float offset =
+                          128f *
+                                  (1f - contrast);
+
+                  return new ColorMatrix(
+                          new float[] {
+                                  contrast, 0, 0, 0, offset,
+                                  0, contrast, 0, 0, offset,
+                                  0, 0, contrast, 0, offset,
+                                  0, 0, 0, 1, 0
+                          }
+                  );
+              }
+
+              private ColorMatrix offsetMatrix(
+                      float r,
+                      float g,
+                      float b
+              ) {
+
+                  return new ColorMatrix(
+                          new float[] {
+                                  1, 0, 0, 0, r,
+                                  0, 1, 0, 0, g,
+                                  0, 0, 1, 0, b,
+                                  0, 0, 0, 1, 0
+                          }
+                  );
+              }
+
+              private void setupPreviewTouch() {
+
+                  if (previewImage == null) {
+                      return;
+                  }
+
+                  previewImage.setOnTouchListener(
+                          new View.OnTouchListener() {
+
+                              @Override
+                              public boolean onTouch(
+                                      View v,
+                                      MotionEvent event
+                              ) {
+
+                                  if (zoom <= 1f) {
+                                      return true;
+                                  }
+
+                                  if (event.getActionMasked() ==
+                                          MotionEvent.ACTION_DOWN) {
+
+                                      lastX =
+                                              event.getRawX();
+
+                                      lastY =
+                                              event.getRawY();
+
+                                      return true;
+                                  }
+
+                                  if (event.getActionMasked() ==
+                                          MotionEvent.ACTION_MOVE) {
+
+                                      float dx =
+                                              event.getRawX()
+                                                      - lastX;
+
+                                      float dy =
+                                              event.getRawY()
+                                                      - lastY;
+
+                                      dragX += dx;
+                                      dragY += dy;
+
+                                      lastX =
+                                              event.getRawX();
+
+                                      lastY =
+                                              event.getRawY();
+
+                                      updatePreview();
+
+                                      return true;
+                                  }
+
+                                  return true;
+                              }
+                          }
+                  );
+              }
+
+              private void showBefore() {
+
+                  if (previewImage == null ||
+                          originalBitmap == null) {
+                      return;
+                  }
+
+                  previewImage.setImageBitmap(
+                          originalBitmap
+                  );
+
+                  previewImage.clearColorFilter();
+
+                  if (vignetteView != null) {
+                      vignetteView.setStrength(0);
+                  }
+              }
+
+              private boolean hasPhoto() {
+
+                  if (editedBitmap == null) {
+
+                      toast(
+                              "Pehle photo choose karo"
+                      );
+
+                      return false;
+                  }
+
+                  return true;
+              }
+
+              private void resetAdjustments() {
+
+                  brightness = 0;
+                  exposure = 0;
+                  brilliance = 0;
+                  contrast = 0;
+                  highlights = 0;
+                  shadows = 0;
+                  blackPoint = 0;
+                  saturation = 0;
+                  vibrance = 0;
+                  warmth = 0;
+                  tint = 0;
+                  sharpness = 0;
+                  definition = 0;
+                  noiseReduction = 0;
+                  fade = 0;
+                  vignette = 0;
+                  hue = 0;
+
+                  if (vignetteView != null) {
+                      vignetteView.setStrength(0);
+                  }
+
+                  updatePreview();
+
+                  toast(
+                          "Adjustments reset"
+                  );
+              }
+
+              private void resetPhoto() {
+
+                  if (!hasPhoto()) {
+                      return;
+                  }
+
+                  editedBitmap =
+                          originalBitmap.copy(
+                                  Bitmap.Config.ARGB_8888,
+                                  true
+                          );
+
+                  selectedFilter =
+                          "Original";
+
+                  filterIntensity = 100;
+
+                  resetAdjustments();
+
+                  zoom = 1f;
+                  dragX = 0f;
+                  dragY = 0f;
+
+                  updatePreview();
+
+                  toast(
+                          "Photo reset ho gayi"
+                  );
+              }
+
+              private void rotate90() {
+
+                  if (!hasPhoto()) {
+                      return;
+                  }
+
+                  Matrix matrix =
+                          new Matrix();
+
+                  matrix.postRotate(90);
+
+                  editedBitmap =
+                          Bitmap.createBitmap(
+                                  editedBitmap,
+                                  0,
+                                  0,
+                                  editedBitmap.getWidth(),
+                                  editedBitmap.getHeight(),
+                                  matrix,
+                                  true
+                          );
+
+                  resetViewOnly();
+
+                  updatePreview();
+              }
+
+              private void flipHorizontal() {
+
+                  if (!hasPhoto()) {
+                      return;
+                  }
+
+                  Matrix matrix =
+                          new Matrix();
+
+                  matrix.setScale(
+                          -1,
+                          1
+                  );
+
+                  editedBitmap =
+                          Bitmap.createBitmap(
+                                  editedBitmap,
+                                  0,
+                                  0,
+                                  editedBitmap.getWidth(),
+                                  editedBitmap.getHeight(),
+                                  matrix,
+                                  true
+                          );
+
+                  resetViewOnly();
+
+                  updatePreview();
+              }
+
+              private void flipVertical() {
+
+                  if (!hasPhoto()) {
+                      return;
+                  }
+
+                  Matrix matrix =
+                          new Matrix();
+
+                  matrix.setScale(
+                          1,
+                          -1
+                  );
+
+                  editedBitmap =
+                          Bitmap.createBitmap(
+                                  editedBitmap,
+                                  0,
+                                  0,
+                                  editedBitmap.getWidth(),
+                                  editedBitmap.getHeight(),
+                                  matrix,
+                                  true
+                          );
+
+                  resetViewOnly();
+
+                  updatePreview();
+              }
+
+              private void centerCrop() {
+
+                  if (!hasPhoto()) {
+                      return;
+                  }
+
+                  int size =
+                          Math.min(
+                                  editedBitmap.getWidth(),
+                                  editedBitmap.getHeight()
+                          );
+
+                  int left =
+                          (
+                                  editedBitmap.getWidth()
+                                          - size
+                          ) / 2;
+
+                  int top =
+                          (
+                                  editedBitmap.getHeight()
+                                          - size
+                          ) / 2;
+
+                  editedBitmap =
+                          Bitmap.createBitmap(
+                                  editedBitmap,
+                                  left,
+                                  top,
+                                  size,
+                                  size
+                          );
+
+                  resetViewOnly();
+
+                  updatePreview();
+              }
+
+              private void resetViewOnly() {
+
+                  zoom = 1f;
+                  dragX = 0f;
+                  dragY = 0f;
+              }
+
+              private void pickImage() {
+
+                  Intent intent =
+                          new Intent(
+                                  Intent.ACTION_OPEN_DOCUMENT
+                          );
+
+                  intent.setType(
+                          "image/*"
+                  );
+
+                  intent.addCategory(
+                          Intent.CATEGORY_OPENABLE
+                  );
+
+                  startActivityForResult(
+                          intent,
+                          PICK_IMAGE
+                  );
+              }
+
+              private void pickAudio() {
+
+                  Intent intent =
+                          new Intent(
+                                  Intent.ACTION_OPEN_DOCUMENT
+                          );
+
+                  intent.setType(
+                          "audio/*"
+                  );
+
+                  intent.addCategory(
+                          Intent.CATEGORY_OPENABLE
+                  );
+
+                  startActivityForResult(
+                          intent,
+                          PICK_AUDIO
+                  );
+              }
+
+              @Override
+              protected void onActivityResult(
+                      int requestCode,
+                      int resultCode,
+                      Intent data
+              ) {
+
+                  super.onActivityResult(
+                          requestCode,
+                          resultCode,
+                          data
+                  );
+
+                  if (resultCode != RESULT_OK ||
+                          data == null ||
+                          data.getData() == null) {
+                      return;
+                  }
+
+                  if (requestCode == PICK_IMAGE) {
+
+                      try {
+
+                          Uri uri =
+                                  data.getData();
+
+                          Bitmap bitmap =
+                                  BitmapFactory.decodeStream(
+                                          getContentResolver()
+                                                  .openInputStream(
+                                                          uri
+                                                  )
+                                  );
+
+                          if (bitmap == null) {
+
+                              toast(
+                                      "Photo load nahi hui"
+                              );
+
+                              return;
+                          }
+
+                          originalBitmap =
+                                  bitmap.copy(
+                                          Bitmap.Config.ARGB_8888,
+                                          true
+                                  );
+
+                          editedBitmap =
+                                  originalBitmap.copy(
+                                          Bitmap.Config.ARGB_8888,
+                                          true
+                                  );
+
+                          selectedFilter =
+                                  "Original";
+
+                          filterIntensity = 100;
+
+                          resetAdjustments();
+
+                          resetViewOnly();
+
+                          renderScreen();
+
+                      } catch (Exception e) {
+
+                          toast(
+                                  "Photo open nahi hui"
+                          );
+                      }
+                  }
+              }
+
+              private void savePhoto() {
+
+                  if (!hasPhoto()) {
+                      return;
+                  }
+
+                  try {
+
+                      Bitmap output =
+                              Bitmap.createBitmap(
+                                      editedBitmap.getWidth(),
+                                      editedBitmap.getHeight(),
+                                      Bitmap.Config.ARGB_8888
+                              );
+
+                      Canvas canvas =
+                              new Canvas(output);
+
+                      Paint paint =
+                              new Paint(
+                                      Paint.ANTI_ALIAS_FLAG |
+                                              Paint.FILTER_BITMAP_FLAG
+                              );
+
+                      ColorMatrix matrix =
+                              buildCombinedMatrix();
+
+                      if (matrix != null) {
+
+                          paint.setColorFilter(
+                                  new ColorMatrixColorFilter(
+                                          matrix
+                                  )
+                          );
+                      }
+
+                      canvas.drawBitmap(
+                              editedBitmap,
+                              0,
+                              0,
+                              paint
+                      );
+
+                      if (vignette > 0) {
+
+                          applyVignetteToBitmap(
+                                  output,
+                                  vignette
+                          );
+                      }
+
+                      ContentValues values =
+                              new ContentValues();
+
+                      values.put(
+                              MediaStore.Images.Media.DISPLAY_NAME,
+                              "RCINSTAEDIT_" +
+                                      System.currentTimeMillis() +
+                                      ".jpg"
+                      );
+
+                      values.put(
+                              MediaStore.Images.Media.MIME_TYPE,
+                              "image/jpeg"
+                      );
+
+                      if (Build.VERSION.SDK_INT >= 29) {
+
+                          values.put(
+                                  MediaStore.Images.Media.RELATIVE_PATH,
+                                  "Pictures/RCINSTAEDIT"
+                          );
+                      }
+
+                      Uri uri =
+                              getContentResolver()
+                                      .insert(
+                                              MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                              values
+                                      );
+
+                      if (uri == null) {
+
+                          toast(
+                                  "Save failed"
+                          );
+
+                          return;
+                      }
+
+                      OutputStream stream =
+                              getContentResolver()
+                                      .openOutputStream(
+                                              uri
+                                      );
+
+                      if (stream == null) {
+
+                          toast(
+                                  "Save failed"
+                          );
+
+                          return;
+                      }
+
+                      output.compress(
+                              Bitmap.CompressFormat.JPEG,
+                              95,
+                              stream
+                      );
+
+                      stream.close();
+
+                      output.recycle();
+
+                      toast(
+                              "Saved in Pictures/RCINSTAEDIT"
+                      );
+
+                  } catch (Exception e) {
+
+                      toast(
+                              "Photo save nahi ho payi"
+                      );
+                  }
+              }
+
+              private void applyVignetteToBitmap(
+                      Bitmap bitmap,
+                      int amount
+              ) {
+
+                  int width =
+                          bitmap.getWidth();
+
+                  int height =
+                          bitmap.getHeight();
+
+                  int[] pixels =
+                          new int[
+                                  width *
+                                          height
+                          ];
+
+                  bitmap.getPixels(
+                          pixels,
+                          0,
+                          width,
+                          0,
+                          0,
+                          width,
+                          height
+                  );
+
+                  float cx =
+                          width / 2f;
+
+                  float cy =
+                          height / 2f;
+
+                  float maxDist =
+                          (float) Math.sqrt(
+                                  cx * cx +
+                                          cy * cy
+                          );
+
+                  float strength =
+                          amount /
+                                  100f *
+                                  0.75f;
+
+                  for (int y = 0;
+                       y < height;
+                       y++) {
+
+                      for (int x = 0;
+                           x < width;
+                           x++) {
+
+                          int index =
+                                  y * width + x;
+
+                          int color =
+                                  pixels[index];
+
+                          float dx =
+                                  x - cx;
+
+                          float dy =
+                                  y - cy;
+
+                          float distance =
+                                  (float) Math.sqrt(
+                                          dx * dx +
+                                                  dy * dy
+                                  ) /
+                                          maxDist;
+
+                          float edge =
+                                  Math.max(
+                                          0f,
+                                          distance -
+                                                  0.45f
+                                  ) /
+                                          0.55f;
+
+                          edge =
+                                  edge * edge;
+
+                          float factor =
+                                  1f -
+                                          edge *
+                                                  strength;
+
+                          int r =
+                                  (int) (
+                                          Color.red(
+                                                  color
+                                          ) *
+                                                  factor
+                                  );
+
+                          int g =
+                                  (int) (
+                                          Color.green(
+                                                  color
+                                          ) *
+                                                  factor
+                                  );
+
+                          int b =
+                                  (int) (
+                                          Color.blue(
+                                                  color
+                                          ) *
+                                                  factor
+                                  );
+
+                          pixels[index] =
+                                  Color.argb(
+                                          Color.alpha(
+                                                  color
+                                          ),
+                                          Math.max(
+                                                  0,
+                                                  Math.min(
+                                                          255,
+                                                          r
+                                                  )
+                                          ),
+                                          Math.max(
+                                                  0,
+                                                  Math.min(
+                                                          255,
+                                                          g
+                                                  )
+                                          ),
+                                          Math.max(
+                                                  0,
+                                                  Math.min(
+                                                          255,
+                                                          b
+                                                  )
+                                          )
+                                  );
+                      }
+                  }
+
+                  bitmap.setPixels(
+                          pixels,
+                          0,
+                          width,
+                          0,
+                          0,
+                          width,
+                          height
+                  );
+              }
+
+              private LinearLayout baseColumn() {
+
+                  LinearLayout root =
+                          new LinearLayout(this);
+
+                  root.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  root.setBackgroundColor(
+                          Color.rgb(
+                                  14,
+                                  15,
+                                  20
+                          )
+                  );
+
+                  root.setClipToPadding(
+                          false
+                  );
+
+                  return root;
+              }
+
+              private void setContentViewWithInsets(
+                      final View root
+              ) {
+
+                  root.setOnApplyWindowInsetsListener(
+                          new View.OnApplyWindowInsetsListener() {
+
+                              @Override
+                              public WindowInsets
+                              onApplyWindowInsets(
+                                      View v,
+                                      WindowInsets insets
+                              ) {
+
+                                  int top = 0;
+                                  int bottom = 0;
+                                  int left = 0;
+                                  int right = 0;
+
+                                  if (Build.VERSION.SDK_INT >= 30) {
+
+                                      android.graphics.Insets system =
+                                              insets.getInsets(
+                                                      WindowInsets.Type.systemBars()
+                                                              |
+                                                      WindowInsets.Type.displayCutout()
+                                              );
+
+                                      top =
+                                              system.top;
+
+                                      bottom =
+                                              system.bottom;
+
+                                      left =
+                                              system.left;
+
+                                      right =
+                                              system.right;
+
+                                  } else {
+
+                                      top =
+                                              insets.getSystemWindowInsetTop();
+
+                                      bottom =
+                                              insets.getSystemWindowInsetBottom();
+
+                                      left =
+                                              insets.getSystemWindowInsetLeft();
+
+                                      right =
+                                              insets.getSystemWindowInsetRight();
+                                  }
+
+                                  root.setPadding(
+                                          left,
+                                          top,
+                                          right,
+                                          bottom
+                                  );
+
+                                  return insets;
+                              }
+                          }
+                  );
+
+                  setContentView(root);
+
+                  root.requestApplyInsets();
+              }
+
+              private LinearLayout topBar(
+                      String title
+              ) {
+
+                  LinearLayout bar =
+                          new LinearLayout(this);
+
+                  bar.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  TextView back =
+                          makeButton(
+                                  "‹  Back"
+                          );
+
+                  back.setTextSize(
+                          15
+                  );
+
+                  back.setOnClickListener(
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  goBack();
+                              }
+                          }
+                  );
+
+                  bar.addView(
+                          back,
+                          new LinearLayout.LayoutParams(
+                                  dp(90),
+                                  dp(52)
+                          )
+                  );
+
+                  TextView titleView =
+                          text(
+                                  title,
+                                  20,
+                                  Color.WHITE
+                          );
+
+                  titleView.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  bar.addView(
+                          titleView,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1
+                          )
+                  );
+
+                  return bar;
+              }
+
+              private void addTool(
+                      LinearLayout parent,
+                      String title,
+                      View.OnClickListener listener
+              ) {
+
+                  TextView item =
+                          makeButton(
+                                  title
+                          );
+
+                  item.setOnClickListener(
+                          listener
+                  );
+
+                  parent.addView(
+                          item
+                  );
+              }
+
+              private void addSmallButton(
+                      LinearLayout parent,
+                      String title,
+                      View.OnClickListener listener
+              ) {
+
+                  TextView item =
+                          makeButton(
+                                  title
+                          );
+
+                  item.setTextSize(
+                          13
+                  );
+
+                  item.setOnClickListener(
+                          listener
+                  );
+
+                  parent.addView(
+                          item,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(48),
+                                  1
+                          )
+                  );
+              }
+
+              private TextView makeButton(
+                      String title
+              ) {
+
+                  TextView t =
+                          text(
+                                  title,
+                                  15,
+                                  Color.WHITE
+                          );
+
+                  t.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  t.setBackgroundColor(
+                          Color.rgb(
+                                  30,
+                                  31,
+                                  40
+                          )
+                  );
+
+                  t.setPadding(
+                          dp(10),
+                          dp(8),
+                          dp(10),
+                          dp(8)
+                  );
+
+                  LinearLayout.LayoutParams p =
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(58)
+                          );
+
+                  p.setMargins(
+                          0,
+                          dp(5),
+                          0,
+                          dp(5)
+                  );
+
+                  t.setLayoutParams(p);
+
+                  return t;
+              }
+
+              private TextView text(
+                      String value,
+                      float size,
+                      int color
+              ) {
+
+                  TextView t =
+                          new TextView(this);
+
+                  t.setText(
+                          value
+                  );
+
+                  t.setTextSize(
+                          size
+                  );
+
+                  t.setTextColor(
+                          color
+                  );
+
+                  return t;
+              }
+
+              private LinearLayout.LayoutParams lp(
+                      int width,
+                      int height
+              ) {
+
+                  return new LinearLayout.LayoutParams(
+                          width,
+                          height
+                  );
+              }
+
+              private void addSpace(
+                      LinearLayout root,
+                      int height
+              ) {
+
+                  root.addView(
+                          new View(this),
+                          lp(
+                                  1,
+                                  dp(height)
+                          )
+                  );
+              }
+
+              private int dp(int value) {
+
+                  return (int) (
+                          value *
+                                  getResources()
+                                          .getDisplayMetrics()
+                                          .density
+                  );
+              }
+
+              private void toast(
+                      String message
+              ) {
+
+                  Toast.makeText(
+                          this,
+                          message,
+                          Toast.LENGTH_SHORT
+                  ).show();
+              }
+
+              public static class VignetteView
+                      extends View {
+
+                  private int strength = 0;
+
+                  private final Paint paint =
+                          new Paint(
+                                  Paint.ANTI_ALIAS_FLAG
+                          );
+
+                  public VignetteView(
+                          android.content.Context context
+                  ) {
+
+                      super(context);
+
+                      setClickable(false);
+                      setFocusable(false);
+                  }
+
+                  public void setStrength(
+                          int value
+                  ) {
+
+                      strength =
+                              Math.max(
+                                      0,
+                                      Math.min(
+                                              100,
+                                              value
+                                      )
+                      );
+
+                      invalidate();
+                  }
+
+                  @Override
+                  protected void onDraw(
+                          Canvas canvas
+                  ) {
+
+                      if (strength <= 0) {
+                          return;
+                      }
+
+                      float cx =
+                              getWidth() / 2f;
+
+                      float cy =
+                              getHeight() / 2f;
+
+                      float radius =
+                              Math.max(
+                                      getWidth(),
+                                      getHeight()
+                              ) *
+                                      0.72f;
+
+                      int alpha =
+                              (int) (
+                                      strength /
+                                              100f *
+                                              210f
+                              );
+
+                      RadialGradient gradient =
+                              new RadialGradient(
+                                      cx,
+                                      cy,
+                                      radius,
+                                      new int[] {
+                                              0x00000000,
+                                              0x00000000,
+                                              alpha << 24
+                                      },
+                                      new float[] {
+                                              0f,
+                                              0.52f,
+                                              1f
+                                      },
+                                      Shader.TileMode.CLAMP
+                              );
+
+                      paint.setShader(
+                              gradient
+                      );
+
+                      canvas.drawRect(
+                              0,
+                              0,
+                              getWidth(),
+                              getHeight(),
+                              paint
+                      );
+
+                      paint.setShader(null);
+                  }
+              }
+          }
+          EOF
+
+      - name: Verify Project
+        shell: bash
+        run: |
+          set -e
+
+          test -f settings.gradle
+          test -f build.gradle
+          test -f app/build.gradle
+          test -f app/src/main/AndroidManifest.xml
+          test -f app/src/main/java/com/rcinstaedit/MainActivity.java
+
+          echo "Project verification passed."
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -e
+
+          gradle wrapper --gradle-version 8.9
+
+          ./gradlew clean assembleDebug \
+            --no-daemon \
+            --stacktrace
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -e
+
+          test -f app/build/outputs/apk/debug/app-debug.apk
+
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+          echo "APK verification passed."
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCINSTAEDIT-Advanced-Adjust-Build-5
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+```0
