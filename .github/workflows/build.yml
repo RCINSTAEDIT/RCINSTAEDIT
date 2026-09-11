@@ -1,1 +1,1076 @@
+name: RCINSTAEDIT APK
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Create Android Project
+        shell: bash
+        run: |
+          set -e
+
+          rm -rf app build .gradle gradle
+          rm -f build.gradle settings.gradle gradle.properties
+
+          mkdir -p app/src/main/java/com/rcinstaedit
+          mkdir -p app/src/main/res/values
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "RCINSTAEDIT"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m
+          android.useAndroidX=false
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.rcinstaedit'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.rcinstaedit'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 4
+                  versionName "2.0"
+              }
+          }
+          EOF
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme"
+                  parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#09090D</item>
+                  <item name="android:navigationBarColor">#09090D</item>
+                  <item name="android:colorAccent">#FFFFFF</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <application
+                  android:theme="@style/AppTheme"
+                  android:label="RCINSTAEDIT"
+                  android:allowBackup="false"
+                  android:supportsRtl="true">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="true">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+
+                  </activity>
+
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/rcinstaedit/MainActivity.java <<'EOF'
+          package com.rcinstaedit;
+
+          import android.app.Activity;
+          import android.content.ContentValues;
+          import android.content.Intent;
+          import android.graphics.Bitmap;
+          import android.graphics.Canvas;
+          import android.graphics.Color;
+          import android.graphics.ColorMatrix;
+          import android.graphics.ColorMatrixColorFilter;
+          import android.graphics.Matrix;
+          import android.graphics.Paint;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Environment;
+          import android.provider.MediaStore;
+          import android.view.Gravity;
+          import android.view.MotionEvent;
+          import android.view.View;
+          import android.widget.HorizontalScrollView;
+          import android.widget.ImageView;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.SeekBar;
+          import android.widget.TextView;
+          import android.widget.Toast;
+
+          import java.io.OutputStream;
+
+          public class MainActivity extends Activity {
+
+              LinearLayout root;
+              ImageView preview;
+
+              Bitmap original;
+              Bitmap edited;
+
+              float brightness = 0;
+              float exposure = 0;
+              float contrast = 1;
+              float highlights = 0;
+              float shadows = 0;
+              float saturation = 1;
+              float temperature = 0;
+              float tint = 0;
+              float fade = 0;
+
+              final int BG = Color.rgb(9,9,13);
+              final int CARD = Color.rgb(27,27,34);
+              final int CARD2 = Color.rgb(40,40,49);
+
+              int dp(float v) {
+                  return (int)(v * getResources()
+                          .getDisplayMetrics().density + .5f);
+              }
+
+              @Override
+              protected void onCreate(Bundle state) {
+                  super.onCreate(state);
+                  home();
+              }
+
+              TextView txt(String s,float size) {
+                  TextView t = new TextView(this);
+                  t.setText(s);
+                  t.setTextColor(Color.WHITE);
+                  t.setTextSize(size);
+                  t.setGravity(Gravity.CENTER);
+                  t.setPadding(dp(12),dp(8),dp(12),dp(8));
+                  return t;
+              }
+
+              TextView card(String s) {
+                  TextView t = txt(s,15);
+                  t.setBackgroundColor(CARD);
+                  t.setMinHeight(dp(56));
+
+                  LinearLayout.LayoutParams p =
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(56));
+
+                  p.setMargins(dp(10),dp(5),dp(10),dp(5));
+                  t.setLayoutParams(p);
+
+                  return t;
+              }
+
+              void page() {
+                  root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setBackgroundColor(BG);
+                  root.setPadding(0,dp(12),0,dp(18));
+
+                  ScrollView scroll = new ScrollView(this);
+                  scroll.setFillViewport(true);
+                  scroll.addView(root);
+
+                  setContentView(scroll);
+              }
+
+              void title(String s) {
+                  TextView t = txt(s,23);
+                  t.setTypeface(null,1);
+
+                  root.addView(t,
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(60)));
+              }
+
+              void section(String s) {
+                  TextView t = txt(s,17);
+                  t.setGravity(Gravity.CENTER_VERTICAL);
+                  t.setTypeface(null,1);
+
+                  root.addView(t,
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(50)));
+              }
+
+              TextView back() {
+                  TextView b = card("‹   Back");
+                  b.setOnClickListener(v -> home());
+                  return b;
+              }
+
+              void home() {
+                  page();
+
+                  TextView logo = txt("RCINSTAEDIT",30);
+                  logo.setTypeface(null,1);
+
+                  root.addView(logo,
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(70)));
+
+                  root.addView(
+                          txt("PHOTO  •  VIDEO  •  CREATE",13),
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(35)));
+
+                  section("CREATE");
+
+                  TextView photo =
+                          card("📷   Photo Editor");
+
+                  TextView video =
+                          card("🎬   Video Editor");
+
+                  TextView effects =
+                          card("✨   Filters & Effects");
+
+                  TextView transitions =
+                          card("↔   Transitions");
+
+                  root.addView(photo);
+                  root.addView(video);
+                  root.addView(effects);
+                  root.addView(transitions);
+
+                  photo.setOnClickListener(v ->
+                          pick("image/*",100));
+
+                  video.setOnClickListener(v ->
+                          toast("Video editor next stage mein"));
+
+                  effects.setOnClickListener(v ->
+                          photoFilters());
+
+                  transitions.setOnClickListener(v ->
+                          transitions());
+              }
+
+              void pick(String type,int code) {
+                  Intent i =
+                          new Intent(Intent.ACTION_OPEN_DOCUMENT);
+
+                  i.setType(type);
+                  i.addCategory(
+                          Intent.CATEGORY_OPENABLE);
+
+                  startActivityForResult(i,code);
+              }
+
+              @Override
+              protected void onActivityResult(
+                      int request,
+                      int result,
+                      Intent data) {
+
+                  super.onActivityResult(
+                          request,result,data);
+
+                  if(result != RESULT_OK ||
+                     data == null)
+                      return;
+
+                  if(request == 100) {
+                      try {
+                          Uri uri = data.getData();
+
+                          original =
+                                  MediaStore.Images.Media.getBitmap(
+                                          getContentResolver(),
+                                          uri);
+
+                          edited =
+                                  original.copy(
+                                          Bitmap.Config.ARGB_8888,
+                                          true);
+
+                          photoEditor();
+
+                      } catch(Exception e) {
+                          toast("Photo open failed");
+                      }
+                  }
+              }
+
+              void photoEditor() {
+                  page();
+                  title("PHOTO EDITOR");
+
+                  preview = new ImageView(this);
+                  preview.setImageBitmap(edited);
+                  preview.setScaleType(
+                          ImageView.ScaleType.FIT_CENTER);
+                  preview.setAdjustViewBounds(true);
+
+                  LinearLayout.LayoutParams pp =
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(350));
+
+                  pp.setMargins(0,dp(4),0,dp(8));
+
+                  root.addView(preview,pp);
+
+                  TextView before =
+                          card("👁   Hold for Original");
+
+                  before.setOnTouchListener(
+                          (v,event) -> {
+
+                      if(event.getAction() ==
+                              MotionEvent.ACTION_DOWN) {
+
+                          preview.setImageBitmap(original);
+
+                      } else if(
+                              event.getAction() ==
+                              MotionEvent.ACTION_UP ||
+                              event.getAction() ==
+                              MotionEvent.ACTION_CANCEL) {
+
+                          preview.setImageBitmap(edited);
+                      }
+
+                      return true;
+                  });
+
+                  root.addView(before);
+
+                  section("EDIT");
+
+                  TextView adjust =
+                          card("🎚   Adjust");
+
+                  TextView filters =
+                          card("✨   Filters");
+
+                  TextView transform =
+                          card("✂   Crop / Rotate / Flip");
+
+                  TextView reset =
+                          card("↶   Reset");
+
+                  TextView save =
+                          card("✓   Save");
+
+                  root.addView(adjust);
+                  root.addView(filters);
+                  root.addView(transform);
+                  root.addView(reset);
+                  root.addView(save);
+
+                  adjust.setOnClickListener(
+                          v -> adjust());
+
+                  filters.setOnClickListener(
+                          v -> photoFilters());
+
+                  transform.setOnClickListener(
+                          v -> transform());
+
+                  reset.setOnClickListener(
+                          v -> resetPhoto());
+
+                  save.setOnClickListener(
+                          v -> savePhoto());
+
+                  root.addView(back());
+              }
+
+              void adjust() {
+                  page();
+                  title("ADJUST");
+
+                  preview = new ImageView(this);
+                  preview.setImageBitmap(edited);
+                  preview.setScaleType(
+                          ImageView.ScaleType.FIT_CENTER);
+                  preview.setAdjustViewBounds(true);
+
+                  root.addView(
+                          preview,
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(300)));
+
+                  TextView compare =
+                          card("👁   Hold to see Original");
+
+                  compare.setOnTouchListener(
+                          (v,event) -> {
+
+                      if(event.getAction() ==
+                              MotionEvent.ACTION_DOWN) {
+
+                          preview.setImageBitmap(original);
+
+                      } else if(
+                              event.getAction() ==
+                              MotionEvent.ACTION_UP ||
+                              event.getAction() ==
+                              MotionEvent.ACTION_CANCEL) {
+
+                          preview.setImageBitmap(edited);
+                      }
+
+                      return true;
+                  });
+
+                  root.addView(compare);
+
+                  slider("Brightness",
+                          -100,100,0,
+                          v -> {
+                              brightness=v;
+                              render();
+                          });
+
+                  slider("Exposure",
+                          -100,100,0,
+                          v -> {
+                              exposure=v;
+                              render();
+                          });
+
+                  slider("Contrast",
+                          50,150,100,
+                          v -> {
+                              contrast=v/100f;
+                              render();
+                          });
+
+                  slider("Highlights",
+                          -100,100,0,
+                          v -> {
+                              highlights=v;
+                              render();
+                          });
+
+                  slider("Shadows",
+                          -100,100,0,
+                          v -> {
+                              shadows=v;
+                              render();
+                          });
+
+                  slider("Saturation",
+                          0,200,100,
+                          v -> {
+                              saturation=v/100f;
+                              render();
+                          });
+
+                  slider("Temperature",
+                          -100,100,0,
+                          v -> {
+                              temperature=v;
+                              render();
+                          });
+
+                  slider("Tint",
+                          -100,100,0,
+                          v -> {
+                              tint=v;
+                              render();
+                          });
+
+                  slider("Fade",
+                          0,100,0,
+                          v -> {
+                              fade=v;
+                              render();
+                          });
+
+                  section("ACTIONS");
+
+                  TextView reset =
+                          card("↶   Reset Adjustments");
+
+                  reset.setOnClickListener(
+                          v -> resetAdjust());
+
+                  TextView done =
+                          card("✓   Done");
+
+                  done.setOnClickListener(
+                          v -> photoEditor());
+
+                  root.addView(reset);
+                  root.addView(done);
+              }
+
+              interface Change {
+                  void value(int v);
+              }
+
+              void slider(
+                      String name,
+                      int min,
+                      int max,
+                      int start,
+                      Change change) {
+
+                  TextView label =
+                          txt(name + "   " + start,14);
+
+                  label.setGravity(
+                          Gravity.CENTER_VERTICAL);
+
+                  root.addView(label,
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(38)));
+
+                  SeekBar bar = new SeekBar(this);
+
+                  bar.setMax(max-min);
+                  bar.setProgress(start-min);
+
+                  bar.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                      public void onProgressChanged(
+                              SeekBar s,
+                              int progress,
+                              boolean fromUser) {
+
+                          int value=progress+min;
+
+                          label.setText(
+                                  name+"   "+value);
+
+                          change.value(value);
+                      }
+
+                      public void onStartTrackingTouch(
+                              SeekBar s) {}
+
+                      public void onStopTrackingTouch(
+                              SeekBar s) {}
+                  });
+
+                  root.addView(bar,
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(46)));
+              }
+
+              void render() {
+
+                  if(original == null ||
+                     preview == null)
+                      return;
+
+                  ColorMatrix cm =
+                          new ColorMatrix();
+
+                  ColorMatrix sat =
+                          new ColorMatrix();
+
+                  sat.setSaturation(saturation);
+                  cm.postConcat(sat);
+
+                  float c=contrast;
+
+                  float shift =
+                          128f*(1f-c)
+                          + brightness
+                          + exposure*1.5f;
+
+                  ColorMatrix basic =
+                          new ColorMatrix(
+                                  new float[]{
+                                          c,0,0,0,shift,
+                                          0,c,0,0,shift,
+                                          0,0,c,0,shift,
+                                          0,0,0,1,0
+                                  });
+
+                  cm.postConcat(basic);
+
+                  float warm=temperature;
+
+                  ColorMatrix temp =
+                          new ColorMatrix(
+                                  new float[]{
+                                          1,0,0,0,warm,
+                                          0,1,0,0,
+                                          tint*0.25f,
+                                          0,0,1,0,-warm,
+                                          0,0,0,1,0
+                                  });
+
+                  cm.postConcat(temp);
+
+                  float hi =
+                          highlights*0.35f;
+
+                  float sh =
+                          shadows*0.35f;
+
+                  ColorMatrix tone =
+                          new ColorMatrix(
+                                  new float[]{
+                                          1,0,0,0,hi+sh,
+                                          0,1,0,0,hi+sh,
+                                          0,0,1,0,hi+sh,
+                                          0,0,0,1,0
+                                  });
+
+                  cm.postConcat(tone);
+
+                  edited =
+                          Bitmap.createBitmap(
+                                  original.getWidth(),
+                                  original.getHeight(),
+                                  Bitmap.Config.ARGB_8888);
+
+                  Canvas canvas =
+                          new Canvas(edited);
+
+                  Paint paint=new Paint(
+                          Paint.ANTI_ALIAS_FLAG);
+
+                  paint.setColorFilter(
+                          new ColorMatrixColorFilter(cm));
+
+                  canvas.drawBitmap(
+                          original,0,0,paint);
+
+                  if(fade > 0) {
+
+                      Paint fadePaint =
+                              new Paint();
+
+                      fadePaint.setColor(
+                              Color.argb(
+                                      (int)(fade*1.8f),
+                                      245,245,245));
+
+                      canvas.drawRect(
+                              0,0,
+                              edited.getWidth(),
+                              edited.getHeight(),
+                              fadePaint);
+                  }
+
+                  preview.setImageBitmap(edited);
+              }
+
+              void resetAdjust() {
+
+                  brightness=0;
+                  exposure=0;
+                  contrast=1;
+                  highlights=0;
+                  shadows=0;
+                  saturation=1;
+                  temperature=0;
+                  tint=0;
+                  fade=0;
+
+                  edited =
+                          original.copy(
+                                  Bitmap.Config.ARGB_8888,
+                                  true);
+
+                  preview.setImageBitmap(edited);
+              }
+
+              void photoFilters() {
+                  page();
+                  title("FILTERS");
+
+                  preview = new ImageView(this);
+                  preview.setImageBitmap(edited);
+                  preview.setScaleType(
+                          ImageView.ScaleType.FIT_CENTER);
+                  preview.setAdjustViewBounds(true);
+
+                  root.addView(
+                          preview,
+                          new LinearLayout.LayoutParams(
+                                  -1,dp(300)));
+
+                  String[] filters = {
+                          "Original",
+                          "Black & White",
+                          "Cinematic",
+                          "Vintage",
+                          "Warm",
+                          "Cool",
+                          "Dramatic",
+                          "Fade"
+                  };
+
+                  for(String name:filters) {
+
+                      TextView f=card(name);
+                      root.addView(f);
+
+                      f.setOnClickListener(
+                              v -> applyFilter(name));
+                  }
+
+                  root.addView(back());
+              }
+
+              void applyFilter(String name) {
+
+                  if(original == null)
+                      return;
+
+                  ColorMatrix cm =
+                          new ColorMatrix();
+
+                  if(name.equals("Original")) {
+
+                      cm.reset();
+
+                  } else if(name.equals(
+                          "Black & White")) {
+
+                      cm.setSaturation(0);
+
+                  } else if(name.equals(
+                          "Cinematic")) {
+
+                      cm.set(new float[]{
+                              1.08f,0,0,0,-8,
+                              0,1.04f,0,0,-5,
+                              0,0,.96f,0,4,
+                              0,0,0,1,0
+                      });
+
+                  } else if(name.equals(
+                          "Vintage")) {
+
+                      cm.set(new float[]{
+                              .90f,0,0,0,22,
+                              0,.84f,0,0,16,
+                              0,0,.74f,0,7,
+                              0,0,0,1,0
+                      });
+
+                  } else if(name.equals("Warm")) {
+
+                      cm.set(new float[]{
+                              1,0,0,0,20,
+                              0,1,0,0,6,
+                              0,0,1,0,-10,
+                              0,0,0,1,0
+                      });
+
+                  } else if(name.equals("Cool")) {
+
+                      cm.set(new float[]{
+                              1,0,0,0,-8,
+                              0,1,0,0,0,
+                              0,0,1,0,22,
+                              0,0,0,1,0
+                      });
+
+                  } else if(name.equals("Dramatic")) {
+
+                      cm.set(new float[]{
+                              1.22f,0,0,0,-28,
+                              0,1.22f,0,0,-28,
+                              0,0,1.22f,0,-28,
+                              0,0,0,1,0
+                      });
+
+                  } else if(name.equals("Fade")) {
+
+                      cm.set(new float[]{
+                              .85f,0,0,0,28,
+                              0,.85f,0,0,28,
+                              0,0,.85f,0,28,
+                              0,0,0,1,0
+                      });
+                  }
+
+                  edited =
+                          Bitmap.createBitmap(
+                                  original.getWidth(),
+                                  original.getHeight(),
+                                  Bitmap.Config.ARGB_8888);
+
+                  Canvas canvas =
+                          new Canvas(edited);
+
+                  Paint paint=new Paint(
+                          Paint.ANTI_ALIAS_FLAG);
+
+                  paint.setColorFilter(
+                          new ColorMatrixColorFilter(cm));
+
+                  canvas.drawBitmap(
+                          original,0,0,paint);
+
+                  preview.setImageBitmap(edited);
+              }
+
+              void transform() {
+                  page();
+                  title("TRANSFORM");
+
+                  TextView rotate =
+                          card("↻   Rotate 90°");
+
+                  TextView horizontal =
+                          card("↔   Flip Horizontal");
+
+                  TextView vertical =
+                          card("↕   Flip Vertical");
+
+                  TextView crop =
+                          card("✂   Crop");
+
+                  root.addView(rotate);
+                  root.addView(horizontal);
+                  root.addView(vertical);
+                  root.addView(crop);
+
+                  rotate.setOnClickListener(
+                          v -> rotatePhoto());
+
+                  horizontal.setOnClickListener(
+                          v -> flip(true));
+
+                  vertical.setOnClickListener(
+                          v -> flip(false));
+
+                  crop.setOnClickListener(
+                          v -> toast(
+                                  "Crop engine next stage mein"));
+
+                  root.addView(back());
+              }
+
+              void rotatePhoto() {
+
+                  Matrix m=new Matrix();
+                  m.postRotate(90);
+
+                  edited =
+                          Bitmap.createBitmap(
+                                  edited,
+                                  0,0,
+                                  edited.getWidth(),
+                                  edited.getHeight(),
+                                  m,true);
+
+                  preview.setImageBitmap(edited);
+              }
+
+              void flip(boolean horizontal) {
+
+                  Matrix m=new Matrix();
+
+                  if(horizontal)
+                      m.setScale(-1,1);
+                  else
+                      m.setScale(1,-1);
+
+                  edited =
+                          Bitmap.createBitmap(
+                                  edited,
+                                  0,0,
+                                  edited.getWidth(),
+                                  edited.getHeight(),
+                                  m,true);
+
+                  preview.setImageBitmap(edited);
+              }
+
+              void resetPhoto() {
+
+                  brightness=0;
+                  exposure=0;
+                  contrast=1;
+                  highlights=0;
+                  shadows=0;
+                  saturation=1;
+                  temperature=0;
+                  tint=0;
+                  fade=0;
+
+                  edited =
+                          original.copy(
+                                  Bitmap.Config.ARGB_8888,
+                                  true);
+
+                  if(preview != null)
+                      preview.setImageBitmap(edited);
+
+                  toast("Original restored ✓");
+              }
+
+              void savePhoto() {
+
+                  if(edited == null) {
+                      toast("No photo");
+                      return;
+                  }
+
+                  try {
+
+                      ContentValues values =
+                              new ContentValues();
+
+                      values.put(
+                              MediaStore.Images.Media
+                                      .DISPLAY_NAME,
+                              "RCINSTAEDIT_" +
+                              System.currentTimeMillis() +
+                              ".jpg");
+
+                      values.put(
+                              MediaStore.Images.Media
+                                      .MIME_TYPE,
+                              "image/jpeg");
+
+                      if(Build.VERSION.SDK_INT >= 29) {
+
+                          values.put(
+                                  MediaStore.Images.Media
+                                          .RELATIVE_PATH,
+                                  Environment
+                                          .DIRECTORY_PICTURES +
+                                  "/RCINSTAEDIT");
+                      }
+
+                      Uri uri =
+                              getContentResolver().insert(
+                                      MediaStore.Images.Media
+                                              .EXTERNAL_CONTENT_URI,
+                                      values);
+
+                      OutputStream out =
+                              getContentResolver()
+                                      .openOutputStream(uri);
+
+                      edited.compress(
+                              Bitmap.CompressFormat.JPEG,
+                              95,
+                              out);
+
+                      out.close();
+
+                      toast("Photo saved ✓");
+
+                  } catch(Exception e) {
+
+                      toast("Save failed");
+                  }
+              }
+
+              void transitions() {
+                  page();
+                  title("TRANSITIONS");
+
+                  String[] names={
+                          "Fade",
+                          "Slide Left",
+                          "Slide Right",
+                          "Zoom",
+                          "Flash",
+                          "Blur",
+                          "Wipe"
+                  };
+
+                  for(String n:names) {
+
+                      TextView t=card(n);
+                      root.addView(t);
+
+                      t.setOnClickListener(
+                              v -> toast(
+                                      n+" — video stage"));
+                  }
+
+                  root.addView(back());
+              }
+
+              void toast(String s) {
+                  Toast.makeText(
+                          this,
+                          s,
+                          Toast.LENGTH_SHORT).show();
+              }
+          }
+          EOF
+
+      - name: Verify Project
+        shell: bash
+        run: |
+          set -e
+          test -f app/build.gradle
+          test -f app/src/main/AndroidManifest.xml
+          test -f app/src/main/java/com/rcinstaedit/MainActivity.java
+          echo "Project files OK"
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -e
+          gradle wrapper --gradle-version 8.9
+          ./gradlew clean assembleDebug --no-daemon --stacktrace
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -e
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCINSTAEDIT-Build-2-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
