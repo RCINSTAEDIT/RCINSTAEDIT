@@ -23,133 +23,136 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Create Project
+      - name: Create Android Project
         shell: bash
         run: |
           mkdir -p app/src/main/java/com/rcinstaedit/app
           mkdir -p app/src/main/res/values
 
-          cat > settings.gradle <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
+          printf '%s\n' \
+          'pluginManagement {' \
+          '    repositories {' \
+          '        google()' \
+          '        mavenCentral()' \
+          '        gradlePluginPortal()' \
+          '    }' \
+          '}' \
+          '' \
+          'dependencyResolutionManagement {' \
+          '    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)' \
+          '    repositories {' \
+          '        google()' \
+          '        mavenCentral()' \
+          '    }' \
+          '}' \
+          '' \
+          'rootProject.name = "RCINSTAEDIT"' \
+          'include(":app")' \
+          > settings.gradle
 
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
+          printf '%s\n' \
+          'plugins {' \
+          '    id "com.android.application" version "8.7.3" apply false' \
+          '}' \
+          > build.gradle
 
-          rootProject.name = "RCINSTAEDIT"
-          include(":app")
-          EOF
+          printf '%s\n' \
+          'android.useAndroidX=true' \
+          'android.nonTransitiveRClass=true' \
+          > gradle.properties
 
-          cat > build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application' version '8.7.3' apply false
-          }
-          EOF
+          printf '%s\n' \
+          'plugins {' \
+          '    id "com.android.application"' \
+          '}' \
+          '' \
+          'android {' \
+          '    namespace "com.rcinstaedit.app"' \
+          '    compileSdk 35' \
+          '' \
+          '    defaultConfig {' \
+          '        applicationId "com.rcinstaedit.app"' \
+          '        minSdk 23' \
+          '        targetSdk 35' \
+          '        versionCode 1' \
+          '        versionName "1.0"' \
+          '    }' \
+          '}' \
+          '' \
+          'dependencies {' \
+          '    implementation "androidx.appcompat:appcompat:1.7.0"' \
+          '    implementation "androidx.activity:activity:1.10.1"' \
+          '    implementation "androidx.core:core:1.16.0"' \
+          '}' \
+          > app/build.gradle
 
-          cat > gradle.properties <<'EOF'
-          android.useAndroidX=true
-          android.nonTransitiveRClass=true
-          EOF
+          printf '%s\n' \
+          '<resources>' \
+          '    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">' \
+          '        <item name="android:fontFamily">sans</item>' \
+          '        <item name="android:windowLightStatusBar">false</item>' \
+          '        <item name="android:statusBarColor">#0B0B0F</item>' \
+          '        <item name="android:navigationBarColor">#0B0B0F</item>' \
+          '        <item name="android:colorAccent">#FFFFFF</item>' \
+          '    </style>' \
+          '</resources>' \
+          > app/src/main/res/values/themes.xml
 
-          cat > app/build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application'
-          }
+          printf '%s\n' \
+          '<manifest xmlns:android="http://schemas.android.com/apk/res/android">' \
+          '' \
+          '    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />' \
+          '    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />' \
+          '    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' \
+          '' \
+          '    <application' \
+          '        android:theme="@style/AppTheme"' \
+          '        android:label="RCINSTAEDIT"' \
+          '        android:allowBackup="true"' \
+          '        android:supportsRtl="true">' \
+          '' \
+          '        <activity' \
+          '            android:name=".MainActivity"' \
+          '            android:screenOrientation="portrait"' \
+          '            android:exported="true">' \
+          '            <intent-filter>' \
+          '                <action android:name="android.intent.action.MAIN" />' \
+          '                <category android:name="android.intent.category.LAUNCHER" />' \
+          '            </intent-filter>' \
+          '        </activity>' \
+          '' \
+          '    </application>' \
+          '</manifest>' \
+          > app/src/main/AndroidManifest.xml
 
-          android {
-              namespace 'com.rcinstaedit.app'
-              compileSdk 35
-
-              defaultConfig {
-                  applicationId 'com.rcinstaedit.app'
-                  minSdk 23
-                  targetSdk 35
-                  versionCode 1
-                  versionName "1.0"
-              }
-          }
-
-          dependencies {
-              implementation 'androidx.appcompat:appcompat:1.7.0'
-              implementation 'androidx.activity:activity:1.10.1'
-              implementation 'androidx.core:core:1.16.0'
-
-              implementation 'androidx.media3:media3-exoplayer:1.8.0'
-              implementation 'androidx.media3:media3-ui:1.8.0'
-              implementation 'androidx.media3:media3-transformer:1.8.0'
-              implementation 'androidx.media3:media3-effect:1.8.0'
-          }
-          EOF
-
-          cat > app/src/main/res/values/colors.xml <<'EOF'
-          <resources>
-              <color name="black">#000000</color>
-              <color name="white">#FFFFFF</color>
-          </resources>
-          EOF
-
-          cat > app/src/main/res/values/themes.xml <<'EOF'
-          <resources>
-              <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:statusBarColor">#0B0B0F</item>
-                  <item name="android:navigationBarColor">#0B0B0F</item>
-                  <item name="android:colorAccent">#FFFFFF</item>
-              </style>
-          </resources>
-          EOF
-
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-
-              <application
-                  android:theme="@style/AppTheme"
-                  android:label="RCINSTAEDIT"
-                  android:allowBackup="true"
-                  android:supportsRtl="true">
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:screenOrientation="portrait"
-                      android:exported="true">
-
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-
-          cat > app/src/main/java/com/rcinstaedit/app/MainActivity.java <<'EOF'
+          cat > app/src/main/java/com/rcinstaedit/app/MainActivity.java <<'JAVA'
           package com.rcinstaedit.app;
 
-          import android.app.*;
-          import android.os.*;
-          import android.content.*;
-          import android.graphics.*;
-          import android.graphics.drawable.*;
+          import android.app.AlertDialog;
+          import android.content.ContentValues;
+          import android.content.Intent;
+          import android.graphics.Bitmap;
+          import android.graphics.Canvas;
+          import android.graphics.Color;
+          import android.graphics.Matrix;
+          import android.graphics.Paint;
+          import android.graphics.ColorMatrix;
+          import android.graphics.ColorMatrixColorFilter;
           import android.net.Uri;
+          import android.os.Bundle;
+          import android.os.Environment;
           import android.provider.MediaStore;
-          import android.view.*;
-          import android.widget.*;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.widget.Button;
+          import android.widget.ImageView;
+          import android.widget.LinearLayout;
+          import android.widget.SeekBar;
+          import android.widget.TextView;
+          import android.widget.VideoView;
+          import android.widget.MediaController;
+          import android.widget.Toast;
+
           import java.io.OutputStream;
 
           import androidx.appcompat.app.AppCompatActivity;
@@ -159,491 +162,797 @@ jobs:
               LinearLayout root;
               ImageView image;
               Bitmap originalBitmap;
+              Bitmap workingBitmap;
+
               float brightness = 0;
-              float contrast = 1;
-              float saturation = 1;
+              float contrast = 1f;
+              float saturation = 1f;
               float warmth = 0;
 
-              int white = Color.WHITE;
-              int gray = Color.rgb(170,170,180);
-              int dark = Color.rgb(14,14,19);
+              int BG = Color.rgb(11,11,15);
+              int CARD = Color.rgb(27,27,35);
+              int WHITE = Color.WHITE;
+              int GRAY = Color.rgb(175,175,185);
 
               @Override
-              protected void onCreate(Bundle b) {
-                  super.onCreate(b);
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
                   showHome();
               }
 
-              TextView title(String text, int size) {
+              TextView text(String value, float size) {
                   TextView t = new TextView(this);
-                  t.setText(text);
-                  t.setTextColor(white);
+                  t.setText(value);
+                  t.setTextColor(WHITE);
                   t.setTextSize(size);
-                  t.setPadding(20,20,20,20);
+                  t.setPadding(20, 12, 20, 12);
                   return t;
               }
 
-              Button button(String text) {
+              TextView section(String value) {
+                  TextView t = text(value, 18);
+                  t.setTextColor(WHITE);
+                  t.setPadding(20, 25, 20, 8);
+                  return t;
+              }
+
+              Button btn(String value) {
                   Button b = new Button(this);
-                  b.setText(text);
-                  b.setTextColor(white);
+                  b.setText(value);
+                  b.setTextColor(WHITE);
                   b.setTextSize(14);
                   b.setAllCaps(false);
-                  b.setBackgroundColor(Color.rgb(30,30,38));
+                  b.setGravity(Gravity.CENTER);
+                  b.setBackgroundColor(CARD);
+
                   LinearLayout.LayoutParams p =
-                          new LinearLayout.LayoutParams(-1,60);
-                  p.setMargins(16,7,16,7);
+                          new LinearLayout.LayoutParams(
+                                  LinearLayout.LayoutParams.MATCH_PARENT,
+                                  58);
+                  p.setMargins(14, 6, 14, 6);
                   b.setLayoutParams(p);
+
                   return b;
               }
 
-              void base() {
+              void setup() {
                   root = new LinearLayout(this);
                   root.setOrientation(LinearLayout.VERTICAL);
-                  root.setBackgroundColor(dark);
-                  ScrollView scroll = new ScrollView(this);
-                  scroll.addView(root);
-                  setContentView(scroll);
+                  root.setBackgroundColor(BG);
+
+                  setContentView(root);
+              }
+
+              Button backButton() {
+                  Button b = btn("←  Back");
+                  b.setOnClickListener(new View.OnClickListener() {
+                      @Override
+                      public void onClick(View v) {
+                          showHome();
+                      }
+                  });
+                  return b;
               }
 
               void showHome() {
-                  base();
+                  setup();
 
-                  root.addView(title("RCINSTAEDIT",28));
-                  root.addView(title("PHOTO • VIDEO • CREATE",14));
+                  TextView logo = text("RCINSTAEDIT", 30);
+                  logo.setGravity(Gravity.CENTER);
+                  logo.setPadding(10, 30, 10, 5);
+                  root.addView(logo);
 
-                  Button photo = button("📷  PHOTO EDITOR");
-                  Button video = button("🎬  VIDEO EDITOR");
-                  Button effects = button("✨  EFFECTS");
-                  Button transitions = button("↔  TRANSITIONS");
+                  TextView sub = text(
+                          "PHOTO  •  VIDEO  •  CREATE",
+                          13);
+                  sub.setGravity(Gravity.CENTER);
+                  sub.setTextColor(GRAY);
+                  root.addView(sub);
+
+                  root.addView(section("CREATE"));
+
+                  Button photo = btn("📷  Photo Editor");
+                  Button video = btn("🎬  Video Editor");
+                  Button effects = btn("✨  Effects & Filters");
+                  Button transitions = btn("↔  Transitions");
 
                   root.addView(photo);
                   root.addView(video);
                   root.addView(effects);
                   root.addView(transitions);
 
-                  root.addView(title(
-                      "Professional Photo & Reel Editor\n\n" +
-                      "Adjust • Filters • Crop • Rotate • Video • Effects",
-                      15));
+                  root.addView(section("PHOTO TOOLS"));
+                  root.addView(text(
+                          "Adjust • Crop • Rotate • Flip • Filters • Export",
+                          14));
 
-                  photo.setOnClickListener(v -> pickPhoto());
-                  video.setOnClickListener(v -> pickVideo());
-                  effects.setOnClickListener(v -> effects());
-                  transitions.setOnClickListener(v -> transitions());
+                  root.addView(section("VIDEO TOOLS"));
+                  root.addView(text(
+                          "Trim • Split • Speed • Crop • Rotate • Filters • Adjust",
+                          14));
+
+                  photo.setOnClickListener(new View.OnClickListener() {
+                      @Override
+                      public void onClick(View v) {
+                          pickPhoto();
+                      }
+                  });
+
+                  video.setOnClickListener(new View.OnClickListener() {
+                      @Override
+                      public void onClick(View v) {
+                          pickVideo();
+                      }
+                  });
+
+                  effects.setOnClickListener(new View.OnClickListener() {
+                      @Override
+                      public void onClick(View v) {
+                          showEffects();
+                      }
+                  });
+
+                  transitions.setOnClickListener(new View.OnClickListener() {
+                      @Override
+                      public void onClick(View v) {
+                          showTransitions();
+                      }
+                  });
               }
 
               void pickPhoto() {
                   Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                   i.setType("image/*");
                   i.addCategory(Intent.CATEGORY_OPENABLE);
-                  startActivityForResult(i,10);
+                  startActivityForResult(i, 100);
               }
 
               void pickVideo() {
                   Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                   i.setType("video/*");
                   i.addCategory(Intent.CATEGORY_OPENABLE);
-                  startActivityForResult(i,20);
+                  startActivityForResult(i, 200);
               }
 
               @Override
-              protected void onActivityResult(int r,int c,Intent d) {
-                  super.onActivityResult(r,c,d);
+              protected void onActivityResult(
+                      int requestCode,
+                      int resultCode,
+                      Intent data) {
 
-                  if(c != RESULT_OK || d == null) return;
+                  super.onActivityResult(
+                          requestCode,
+                          resultCode,
+                          data);
 
-                  if(r == 10) {
+                  if (resultCode != RESULT_OK || data == null) {
+                      return;
+                  }
+
+                  Uri uri = data.getData();
+
+                  if (requestCode == 100) {
                       try {
-                          originalBitmap =
-                              MediaStore.Images.Media.getBitmap(
-                                  getContentResolver(), d.getData());
+                          Bitmap b =
+                                  MediaStore.Images.Media.getBitmap(
+                                          getContentResolver(),
+                                          uri);
+
+                          originalBitmap = b.copy(
+                                  Bitmap.Config.ARGB_8888,
+                                  true);
+
+                          workingBitmap = originalBitmap.copy(
+                                  Bitmap.Config.ARGB_8888,
+                                  true);
+
                           showPhotoEditor();
-                      } catch(Exception e) {
-                          Toast.makeText(this,"Photo open failed",
-                              Toast.LENGTH_SHORT).show();
+
+                      } catch (Exception e) {
+                          toast("Photo open nahi ho payi");
                       }
                   }
 
-                  if(r == 20) {
-                      showVideoEditor(d.getData());
+                  if (requestCode == 200) {
+                      showVideoEditor(uri);
                   }
               }
 
               void showPhotoEditor() {
-                  base();
+                  setup();
 
-                  TextView head = title("PHOTO EDITOR",25);
-                  root.addView(head);
+                  TextView h = text("PHOTO EDITOR", 25);
+                  root.addView(h);
 
                   image = new ImageView(this);
-                  image.setImageBitmap(originalBitmap);
+                  image.setImageBitmap(workingBitmap);
                   image.setAdjustViewBounds(true);
                   image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                  root.addView(image,
-                      new LinearLayout.LayoutParams(-1,500));
 
-                  Button adjust = button("🎚  ADJUST");
-                  Button filters = button("✨  FILTERS & EFFECTS");
-                  Button transform = button("✂  CROP / ROTATE / FLIP");
-                  Button save = button("💾  SAVE PHOTO");
-                  Button reset = button("↻  RESET");
+                  LinearLayout.LayoutParams ip =
+                          new LinearLayout.LayoutParams(
+                                  LinearLayout.LayoutParams.MATCH_PARENT,
+                                  430);
+                  ip.setMargins(8, 8, 8, 8);
+
+                  root.addView(image, ip);
+
+                  Button adjust = btn("🎚  Adjust");
+                  Button filters = btn("✨  Filters & Effects");
+                  Button transform = btn("✂  Crop / Rotate / Flip");
+                  Button undo = btn("↶  Restore Original");
+                  Button save = btn("💾  Export Photo");
 
                   root.addView(adjust);
                   root.addView(filters);
                   root.addView(transform);
+                  root.addView(undo);
                   root.addView(save);
-                  root.addView(reset);
 
-                  adjust.setOnClickListener(v -> adjustPanel());
-                  filters.setOnClickListener(v -> filterPanel());
-                  transform.setOnClickListener(v -> transformPanel());
-                  reset.setOnClickListener(v -> {
-                      brightness=0;
-                      contrast=1;
-                      saturation=1;
-                      warmth=0;
-                      image.setImageBitmap(originalBitmap);
+                  adjust.setOnClickListener(new View.OnClickListener() {
+                      @Override
+                      public void onClick(View v) {
+                          showAdjust();
+                      }
                   });
-                  save.setOnClickListener(v -> savePhoto());
+
+                  filters.setOnClickListener(new View.OnClickListener() {
+                      @Override
+                      public void onClick(View v) {
+                          showPhotoFilters();
+                      }
+                  });
+
+                  transform.setOnClickListener(new View.OnClickListener() {
+                      @Override
+                      public void onClick(View v) {
+                          showTransform();
+                      }
+                  });
+
+                  undo.setOnClickListener(new View.OnClickListener() {
+                      @Override
+                      public void onClick(View v) {
+                          resetPhoto();
+                      }
+                  });
+
+                  save.setOnClickListener(new View.OnClickListener() {
+                      @Override
+                      public void onClick(View v) {
+                          savePhoto();
+                      }
+                  });
               }
 
-              void adjustPanel() {
-                  root.removeViews(2, root.getChildCount()-2);
+              void showAdjust() {
+                  setup();
 
-                  root.addView(title("ADJUST",22),2);
+                  root.addView(text("ADJUST", 25));
 
-                  slider("Brightness",-100,100,0,v -> {
-                      brightness=v;
-                      applyAdjust();
-                  });
+                  root.addView(text(
+                          "Fine tune your photo",
+                          14));
 
-                  slider("Contrast",50,150,100,v -> {
-                      contrast=v/100f;
-                      applyAdjust();
-                  });
+                  addSlider(
+                          "Brightness",
+                          -100,
+                          100,
+                          0,
+                          new SliderAction() {
+                              @Override
+                              public void change(int value) {
+                                  brightness = value;
+                                  applyAdjust();
+                              }
+                          });
 
-                  slider("Saturation",0,200,100,v -> {
-                      saturation=v/100f;
-                      applyAdjust();
-                  });
+                  addSlider(
+                          "Contrast",
+                          50,
+                          150,
+                          100,
+                          new SliderAction() {
+                              @Override
+                              public void change(int value) {
+                                  contrast = value / 100f;
+                                  applyAdjust();
+                              }
+                          });
 
-                  slider("Warmth",-100,100,0,v -> {
-                      warmth=v;
-                      applyAdjust();
-                  });
+                  addSlider(
+                          "Saturation",
+                          0,
+                          200,
+                          100,
+                          new SliderAction() {
+                              @Override
+                              public void change(int value) {
+                                  saturation = value / 100f;
+                                  applyAdjust();
+                              }
+                          });
 
-                  slider("Exposure",-100,100,0,v -> {
-                      brightness=v;
-                      applyAdjust();
-                  });
+                  addSlider(
+                          "Warmth",
+                          -100,
+                          100,
+                          0,
+                          new SliderAction() {
+                              @Override
+                              public void change(int value) {
+                                  warmth = value;
+                                  applyAdjust();
+                              }
+                          });
 
-                  slider("Highlights",-100,100,0,v -> {});
-                  slider("Shadows",-100,100,0,v -> {});
-                  slider("Sharpness",0,100,0,v -> {});
-                  slider("Vignette",0,100,0,v -> {});
-                  slider("Fade",0,100,0,v -> {});
+                  addSlider(
+                          "Exposure",
+                          -100,
+                          100,
+                          0,
+                          new SliderAction() {
+                              @Override
+                              public void change(int value) {
+                                  brightness = value;
+                                  applyAdjust();
+                              }
+                          });
+
+                  addSlider(
+                          "Highlights",
+                          -100,
+                          100,
+                          0,
+                          new SliderAction() {
+                              @Override
+                              public void change(int value) {
+                                  // Reserved for advanced engine
+                              }
+                          });
+
+                  addSlider(
+                          "Shadows",
+                          -100,
+                          100,
+                          0,
+                          new SliderAction() {
+                              @Override
+                              public void change(int value) {
+                                  // Reserved for advanced engine
+                              }
+                          });
+
+                  addSlider(
+                          "Sharpness",
+                          0,
+                          100,
+                          0,
+                          new SliderAction() {
+                              @Override
+                              public void change(int value) {
+                                  // Reserved for advanced engine
+                              }
+                          });
+
+                  addSlider(
+                          "Vignette",
+                          0,
+                          100,
+                          0,
+                          new SliderAction() {
+                              @Override
+                              public void change(int value) {
+                                  // Reserved for advanced engine
+                              }
+                          });
+
+                  root.addView(backButton());
               }
 
-              void slider(String name,int min,int max,int val,
-                          SeekBar.OnSeekBarChangeListener listener) {
+              interface SliderAction {
+                  void change(int value);
+              }
 
-                  TextView t=title(name,15);
-                  root.addView(t);
+              void addSlider(
+                      String name,
+                      int min,
+                      int max,
+                      int start,
+                      final SliderAction action) {
 
-                  SeekBar s=new SeekBar(this);
-                  s.setMax(max-min);
-                  s.setProgress(val-min);
-                  s.setOnSeekBarChangeListener(listener);
-                  root.addView(s);
+                  root.addView(text(name, 15));
+
+                  SeekBar bar = new SeekBar(this);
+                  bar.setMax(max - min);
+                  bar.setProgress(start - min);
+
+                  bar.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                              @Override
+                              public void onProgressChanged(
+                                      SeekBar seekBar,
+                                      int progress,
+                                      boolean fromUser) {
+
+                                  action.change(
+                                          progress +
+                                          seekBar.getTag() instanceof Integer
+                                                  ? 0 : 0);
+                              }
+
+                              @Override
+                              public void onStartTrackingTouch(
+                                      SeekBar seekBar) {
+                              }
+
+                              @Override
+                              public void onStopTrackingTouch(
+                                      SeekBar seekBar) {
+                              }
+                          });
+
+                  bar.setTag(min);
+
+                  bar.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                              @Override
+                              public void onProgressChanged(
+                                      SeekBar seekBar,
+                                      int progress,
+                                      boolean fromUser) {
+
+                                  int minimum =
+                                          (Integer) seekBar.getTag();
+
+                                  action.change(
+                                          progress + minimum);
+                              }
+
+                              @Override
+                              public void onStartTrackingTouch(
+                                      SeekBar seekBar) {
+                              }
+
+                              @Override
+                              public void onStopTrackingTouch(
+                                      SeekBar seekBar) {
+                              }
+                          });
+
+                  root.addView(bar);
               }
 
               void applyAdjust() {
-                  if(originalBitmap == null) return;
 
-                  ColorMatrix cm = new ColorMatrix();
+                  if (originalBitmap == null ||
+                          image == null) {
+                      return;
+                  }
 
-                  ColorMatrix sat = new ColorMatrix();
+                  ColorMatrix finalMatrix =
+                          new ColorMatrix();
+
+                  ColorMatrix sat =
+                          new ColorMatrix();
+
                   sat.setSaturation(saturation);
-                  cm.postConcat(sat);
-
-                  float b = brightness;
+                  finalMatrix.postConcat(sat);
 
                   float c = contrast;
-                  float translate = 128f*(1-c)+b;
+                  float b = brightness;
 
-                  ColorMatrix con = new ColorMatrix(new float[]{
-                      c,0,0,0,translate,
-                      0,c,0,0,translate,
-                      0,0,c,0,translate,
-                      0,0,0,1,0
-                  });
+                  float shift =
+                          128f * (1f - c) + b;
 
-                  cm.postConcat(con);
+                  ColorMatrix con =
+                          new ColorMatrix(
+                                  new float[] {
+                                          c, 0, 0, 0, shift,
+                                          0, c, 0, 0, shift,
+                                          0, 0, c, 0, shift,
+                                          0, 0, 0, 1, 0
+                                  });
+
+                  finalMatrix.postConcat(con);
 
                   float w = warmth;
-                  ColorMatrix warm = new ColorMatrix(new float[]{
-                      1,0,0,0,w,
-                      0,1,0,0,0,
-                      0,0,1,0,-w,
-                      0,0,0,1,0
-                  });
 
-                  cm.postConcat(warm);
+                  ColorMatrix warm =
+                          new ColorMatrix(
+                                  new float[] {
+                                          1, 0, 0, 0, w,
+                                          0, 1, 0, 0, 0,
+                                          0, 0, 1, 0, -w,
+                                          0, 0, 0, 1, 0
+                                  });
 
-                  Bitmap out = Bitmap.createBitmap(
-                      originalBitmap.getWidth(),
-                      originalBitmap.getHeight(),
-                      Bitmap.Config.ARGB_8888);
+                  finalMatrix.postConcat(warm);
 
-                  Canvas canvas = new Canvas(out);
+                  Bitmap out =
+                          Bitmap.createBitmap(
+                                  originalBitmap.getWidth(),
+                                  originalBitmap.getHeight(),
+                                  Bitmap.Config.ARGB_8888);
+
+                  Canvas canvas =
+                          new Canvas(out);
+
                   Paint paint = new Paint();
-                  paint.setColorFilter(new android.graphics.ColorMatrixColorFilter(cm));
-                  canvas.drawBitmap(originalBitmap,0,0,paint);
 
+                  paint.setColorFilter(
+                          new ColorMatrixColorFilter(
+                                  finalMatrix));
+
+                  canvas.drawBitmap(
+                          originalBitmap,
+                          0,
+                          0,
+                          paint);
+
+                  workingBitmap = out;
                   image.setImageBitmap(out);
               }
 
-              void filterPanel() {
-                  base();
+              void showPhotoFilters() {
+                  setup();
 
-                  root.addView(title("FILTERS & EFFECTS",24));
+                  root.addView(text(
+                          "FILTERS & EFFECTS",
+                          25));
 
-                  String[] f={
-                      "Original","Cinematic","Vintage","Black & White",
-                      "Cool","Warm","Dramatic","Fade",
-                      "Glow","HDR Style","Portrait"
+                  String[] filters = {
+                          "Original",
+                          "Black & White",
+                          "Cinematic",
+                          "Vintage",
+                          "Cool",
+                          "Warm",
+                          "Dramatic",
+                          "Fade",
+                          "Glow",
+                          "HDR Style"
                   };
 
-                  for(String x:f) {
-                      Button b=button(x);
+                  for (int x = 0; x < filters.length; x++) {
+
+                      final String filter =
+                              filters[x];
+
+                      Button b = btn(filter);
+
                       root.addView(b);
-                      b.setOnClickListener(v -> applyFilter(x));
+
+                      b.setOnClickListener(
+                              new View.OnClickListener() {
+                                  @Override
+                                  public void onClick(
+                                          View v) {
+                                      applyFilter(filter);
+                                  }
+                              });
                   }
 
-                  Button back=button("← BACK");
-                  root.addView(back);
-                  back.setOnClickListener(v -> showPhotoEditor());
+                  root.addView(backButton());
               }
 
-              void applyFilter(String name) {
-                  if(originalBitmap==null)return;
+              void applyFilter(String filter) {
 
-                  ColorMatrix cm=new ColorMatrix();
+                  if (originalBitmap == null) {
+                      return;
+                  }
 
-                  if(name.equals("Black & White")) {
+                  ColorMatrix cm =
+                          new ColorMatrix();
+
+                  if (filter.equals("Black & White")) {
+
                       cm.setSaturation(0);
-                  } else if(name.equals("Cool")) {
-                      cm=new ColorMatrix(new float[]{
-                          1,0,0,0,-5,
-                          0,1,0,0,0,
-                          0,0,1,0,15,
-                          0,0,0,1,0
+
+                  } else if (filter.equals("Cool")) {
+
+                      cm.set(new float[] {
+                              1, 0, 0, 0, -5,
+                              0, 1, 0, 0, 0,
+                              0, 0, 1, 0, 18,
+                              0, 0, 0, 1, 0
                       });
-                  } else if(name.equals("Warm")) {
-                      cm=new ColorMatrix(new float[]{
-                          1,0,0,0,18,
-                          0,1,0,0,5,
-                          0,0,1,0,-8,
-                          0,0,0,1,0
+
+                  } else if (filter.equals("Warm")) {
+
+                      cm.set(new float[] {
+                              1, 0, 0, 0, 18,
+                              0, 1, 0, 0, 5,
+                              0, 0, 1, 0, -8,
+                              0, 0, 0, 1, 0
                       });
-                  } else if(name.equals("Vintage")) {
-                      cm=new ColorMatrix(new float[]{
-                          .9f,0,0,0,20,
-                          0,.85f,0,0,15,
-                          0,0,.7f,0,5,
-                          0,0,0,1,0
+
+                  } else if (filter.equals("Vintage")) {
+
+                      cm.set(new float[] {
+                              .90f, 0, 0, 0, 20,
+                              0, .84f, 0, 0, 15,
+                              0, 0, .72f, 0, 5,
+                              0, 0, 0, 1, 0
                       });
-                  } else if(name.equals("Dramatic")) {
-                      cm.set(new float[]{
-                          1.3f,0,0,0,-35,
-                          0,1.3f,0,0,-35,
-                          0,0,1.3f,0,-35,
-                          0,0,0,1,0
+
+                  } else if (filter.equals("Dramatic")) {
+
+                      cm.set(new float[] {
+                              1.25f, 0, 0, 0, -30,
+                              0, 1.25f, 0, 0, -30,
+                              0, 0, 1.25f, 0, -30,
+                              0, 0, 0, 1, 0
                       });
-                  } else if(name.equals("Fade")) {
-                      cm.set(new float[]{
-                          .85f,0,0,0,25,
-                          0,.85f,0,0,25,
-                          0,0,.85f,0,25,
-                          0,0,0,1,0
+
+                  } else if (filter.equals("Fade")) {
+
+                      cm.set(new float[] {
+                              .85f, 0, 0, 0, 25,
+                              0, .85f, 0, 0, 25,
+                              0, 0, .85f, 0, 25,
+                              0, 0, 0, 1, 0
                       });
                   }
 
-                  Bitmap out=Bitmap.createBitmap(
-                      originalBitmap.getWidth(),
-                      originalBitmap.getHeight(),
-                      Bitmap.Config.ARGB_8888);
+                  Bitmap out =
+                          Bitmap.createBitmap(
+                                  originalBitmap.getWidth(),
+                                  originalBitmap.getHeight(),
+                                  Bitmap.Config.ARGB_8888);
 
-                  Canvas c=new Canvas(out);
-                  Paint p=new Paint();
-                  p.setColorFilter(new android.graphics.ColorMatrixColorFilter(cm));
-                  c.drawBitmap(originalBitmap,0,0,p);
+                  Canvas canvas =
+                          new Canvas(out);
 
-                  image.setImageBitmap(out);
+                  Paint p = new Paint();
+
+                  p.setColorFilter(
+                          new ColorMatrixColorFilter(cm));
+
+                  canvas.drawBitmap(
+                          originalBitmap,
+                          0,
+                          0,
+                          p);
+
+                  workingBitmap = out;
+
+                  if (image != null) {
+                      image.setImageBitmap(out);
+                  }
               }
 
-              void transformPanel() {
-                  base();
+              void showTransform() {
+                  setup();
 
-                  root.addView(title("TRANSFORM",24));
+                  root.addView(text(
+                          "CROP / ROTATE / FLIP",
+                          25));
 
-                  Button rotate=button("↻ ROTATE 90°");
-                  Button flipH=button("↔ FLIP HORIZONTAL");
-                  Button flipV=button("↕ FLIP VERTICAL");
-                  Button back=button("← BACK");
+                  Button rotate =
+                          btn("↻  Rotate 90°");
+
+                  Button flipH =
+                          btn("↔  Flip Horizontal");
+
+                  Button flipV =
+                          btn("↕  Flip Vertical");
+
+                  Button crop =
+                          btn("✂  Crop");
 
                   root.addView(rotate);
                   root.addView(flipH);
                   root.addView(flipV);
-                  root.addView(back);
+                  root.addView(crop);
+                  root.addView(backButton());
 
-                  rotate.setOnClickListener(v -> rotatePhoto(90));
-                  flipH.setOnClickListener(v -> flipPhoto(true));
-                  flipV.setOnClickListener(v -> flipPhoto(false));
-                  back.setOnClickListener(v -> showPhotoEditor());
+                  rotate.setOnClickListener(
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  rotatePhoto();
+                              }
+                          });
+
+                  flipH.setOnClickListener(
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  flipPhoto(true);
+                              }
+                          });
+
+                  flipV.setOnClickListener(
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  flipPhoto(false);
+                              }
+                          });
+
+                  crop.setOnClickListener(
+                          new View.OnClickListener() {
+                              @Override
+                              public void onClick(View v) {
+                                  Toast.makeText(
+                                          MainActivity.this,
+                                          "Crop tool next engine stage mein connect hoga",
+                                          Toast.LENGTH_LONG).show();
+                              }
+                          });
               }
 
-              void rotatePhoto(float angle) {
-                  if(originalBitmap==null)return;
+              void rotatePhoto() {
 
-                  Matrix m=new Matrix();
-                  m.postRotate(angle);
+                  if (workingBitmap == null) {
+                      return;
+                  }
 
-                  Bitmap b=Bitmap.createBitmap(
-                      originalBitmap,0,0,
-                      originalBitmap.getWidth(),
-                      originalBitmap.getHeight(),m,true);
+                  Matrix matrix =
+                          new Matrix();
 
-                  originalBitmap=b;
-                  image.setImageBitmap(b);
+                  matrix.postRotate(90);
+
+                  workingBitmap =
+                          Bitmap.createBitmap(
+                                  workingBitmap,
+                                  0,
+                                  0,
+                                  workingBitmap.getWidth(),
+                                  workingBitmap.getHeight(),
+                                  matrix,
+                                  true);
+
+                  image.setImageBitmap(
+                          workingBitmap);
               }
 
               void flipPhoto(boolean horizontal) {
-                  Matrix m=new Matrix();
 
-                  if(horizontal) m.setScale(-1,1);
-                  else m.setScale(1,-1);
-
-                  Bitmap b=Bitmap.createBitmap(
-                      originalBitmap,0,0,
-                      originalBitmap.getWidth(),
-                      originalBitmap.getHeight(),m,true);
-
-                  originalBitmap=b;
-                  image.setImageBitmap(b);
-              }
-
-              void savePhoto() {
-                  if(image==null)return;
-
-                  Bitmap b=originalBitmap;
-
-                  String name="RCINSTAEDIT_"+System.currentTimeMillis()+".jpg";
-
-                  try {
-                      OutputStream out=
-                          getContentResolver().openOutputStream(
-                              MediaStore.Images.Media.getContentUri(
-                                  MediaStore.VOLUME_EXTERNAL_PRIMARY));
-
-                      b.compress(Bitmap.CompressFormat.JPEG,95,out);
-                      out.close();
-
-                      Toast.makeText(this,
-                          "Photo saved successfully",
-                          Toast.LENGTH_LONG).show();
-
-                  } catch(Exception e) {
-                      Toast.makeText(this,
-                          "Save failed",
-                          Toast.LENGTH_SHORT).show();
+                  if (workingBitmap == null) {
+                      return;
                   }
-              }
 
-              void showVideoEditor(Uri uri) {
-                  base();
+                  Matrix matrix =
+                          new Matrix();
 
-                  root.addView(title("VIDEO EDITOR",25));
-
-                  root.addView(title(
-                      "Selected video ready for editing",16));
-
-                  Button trim=button("✂ TRIM");
-                  Button split=button("✂ SPLIT");
-                  Button speed=button("⚡ SPEED");
-                  Button crop=button("▣ CROP");
-                  Button rotate=button("↻ ROTATE");
-                  Button filters=button("✨ FILTERS");
-                  Button adjust=button("🎚 ADJUST");
-                  Button transitions=button("↔ TRANSITIONS");
-                  Button export=button("🎬 HIGH QUALITY EXPORT");
-
-                  root.addView(trim);
-                  root.addView(split);
-                  root.addView(speed);
-                  root.addView(crop);
-                  root.addView(rotate);
-                  root.addView(filters);
-                  root.addView(adjust);
-                  root.addView(transitions);
-                  root.addView(export);
-
-                  trim.setOnClickListener(v -> videoTool("TRIM"));
-                  split.setOnClickListener(v -> videoTool("SPLIT"));
-                  speed.setOnClickListener(v -> videoTool("SPEED"));
-                  crop.setOnClickListener(v -> videoTool("CROP"));
-                  rotate.setOnClickListener(v -> videoTool("ROTATE"));
-                  filters.setOnClickListener(v -> videoTool("FILTERS"));
-                  adjust.setOnClickListener(v -> videoTool("ADJUST"));
-                  transitions.setOnClickListener(v -> videoTool("TRANSITIONS"));
-                  export.setOnClickListener(v -> videoTool("EXPORT"));
-              }
-
-              void videoTool(String name) {
-                  new AlertDialog.Builder(this)
-                      .setTitle(name)
-                      .setMessage(
-                          name+" tool selected.\n\n"+
-                          "RCINSTAEDIT video engine is ready for "+
-                          name.toLowerCase()+" processing.")
-                      .setPositiveButton("OK",null)
-                      .show();
-              }
-
-              void effects() {
-                  filterPanel();
-              }
-
-              void transitions() {
-                  base();
-
-                  root.addView(title("TRANSITIONS",24));
-
-                  String[] a={
-                      "Fade","Slide Left","Slide Right",
-                      "Zoom","Flash","Blur","Wipe"
-                  };
-
-                  for(String s:a) {
-                      Button b=button(s);
-                      root.addView(b);
-                      b.setOnClickListener(v ->
-                          Toast.makeText(this,
-                              s+" transition selected",
-                              Toast.LENGTH_SHORT).show());
+                  if (horizontal) {
+                      matrix.setScale(-1, 1);
+                  } else {
+                      matrix.setScale(1, -1);
                   }
+
+                  workingBitmap =
+                          Bitmap.createBitmap(
+                                  workingBitmap,
+                                  0,
+                                  0,
+                                  workingBitmap.getWidth(),
+                                  workingBitmap.getHeight(),
+                                  matrix,
+                                  true);
+
+                  image.setImageBitmap(
+                          workingBitmap);
               }
-          }
-          EOF
 
-      - name: Build APK
-        run: |
-          gradle wrapper --gradle-version 8.9
-          ./gradlew assembleDebug
+              void resetPhoto() {
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: RCINSTAEDIT-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+                  if (originalBitmap == null) {
+                      return;
+                  }
+
+                  brightness = 0;
+                  contrast = 1f;
+                  saturation = 1f;
+                  warmth = 0;
+
+                  workingBitmap =
+                          originalBitmap.copy(
+                                  Bitmap.Config.ARGB_8888,
+                                  true);
+
+                  if (
