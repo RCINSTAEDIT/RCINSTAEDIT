@@ -1,1 +1,3583 @@
+name: RCINSTAEDIT APK
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Create Android Project
+        shell: bash
+        run: |
+          set -e
+
+          mkdir -p app/src/main/java/com/rcinstaedit
+          mkdir -p app/src/main/res/values
+          mkdir -p gradle/wrapper
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "RCINSTAEDIT"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=false
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.rcinstaedit'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.rcinstaedit'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 7
+                  versionName '1.0.7'
+              }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+          cat > gradle/wrapper/gradle-wrapper.properties <<'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          cat > app/src/main/res/values/colors.xml <<'EOF'
+          <resources>
+              <color name="black">#08080D</color>
+              <color name="white">#FFFFFF</color>
+              <color name="purple">#AA91FF</color>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">RCINSTAEDIT</string>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme"
+                  parent="@android:style/Theme.Material.NoActionBar">
+
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#08080D</item>
+                  <item name="android:navigationBarColor">#08080D</item>
+                  <item name="android:windowActionModeOverlay">true</item>
+
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <application
+                  android:allowBackup="true"
+                  android:label="RCINSTAEDIT"
+                  android:theme="@style/AppTheme"
+                  android:enableOnBackInvokedCallback="true">
+
+                  <activity
+                      android:name=".VideoEditorActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="false" />
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="true">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+
+                  </activity>
+
+              </application>
+
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/rcinstaedit/MainActivity.java <<'EOF'
+          package com.rcinstaedit;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.os.Build;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.content.ContentValues;
+          import android.content.Intent;
+          import android.graphics.Bitmap;
+          import android.graphics.BitmapFactory;
+          import android.graphics.Color;
+          import android.graphics.ColorMatrix;
+          import android.graphics.ColorMatrixColorFilter;
+          import android.graphics.Matrix;
+          import android.net.Uri;
+          import android.provider.MediaStore;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.view.WindowInsets;
+          import android.widget.Button;
+          import android.widget.ImageView;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.SeekBar;
+          import android.widget.TextView;
+          import android.widget.Toast;
+
+          import java.io.InputStream;
+          import java.io.OutputStream;
+          import java.util.ArrayDeque;
+
+          public class MainActivity extends Activity {
+
+              private final ArrayDeque<String> stack =
+                      new ArrayDeque<>();
+
+              private String current = "home";
+
+              private LinearLayout root;
+              private ImageView preview;
+
+              /*
+               * IMPORTANT:
+               * photoUri = original high-quality source.
+               * previewBitmap = small bitmap only for editing preview.
+               */
+              private Uri photoUri;
+              private Bitmap previewBitmap;
+
+              private final Handler uiHandler =
+                      new Handler(Looper.getMainLooper());
+
+              private Runnable previewJob;
+
+              private float brightness = 0;
+              private float exposure = 0;
+              private float brilliance = 0;
+              private float contrast = 0;
+              private float highlights = 0;
+              private float shadows = 0;
+              private float blackPoint = 0;
+              private float saturation = 0;
+              private float vibrance = 0;
+              private float warmth = 0;
+              private float tint = 0;
+              private float hue = 0;
+              private float sharpness = 0;
+              private float definition = 0;
+              private float noise = 0;
+              private float fade = 0;
+              private float vignette = 0;
+
+              private String selectedFilter = "Original";
+              private float filterIntensity = 1f;
+
+              private int rotation = 0;
+              private boolean flipH = false;
+              private boolean flipV = false;
+
+              private final int BG =
+                      Color.rgb(8,8,13);
+
+              private final int CARD =
+                      Color.rgb(20,19,27);
+
+              private final int WHITE =
+                      Color.WHITE;
+
+              private final int PURPLE =
+                      Color.rgb(170,145,255);
+
+              private final int GRAY =
+                      Color.rgb(175,175,185);
+
+              @Override
+              protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  show("home");
+              }
+
+              private int dp(int v) {
+                  return (int)(
+                          v *
+                          getResources()
+                                  .getDisplayMetrics()
+                                  .density
+                          + 0.5f
+                  );
+              }
+
+              private TextView text(
+                      String s,
+                      int size,
+                      int color
+              ) {
+                  TextView t =
+                          new TextView(this);
+
+                  t.setText(s);
+                  t.setTextSize(size);
+                  t.setTextColor(color);
+                  t.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+                  t.setIncludeFontPadding(true);
+
+                  return t;
+              }
+
+              private void base() {
+
+                  root =
+                          new LinearLayout(this);
+
+                  root.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  root.setBackgroundColor(BG);
+
+                  setContentView(root);
+
+                  if (Build.VERSION.SDK_INT >= 30) {
+
+                      root.setOnApplyWindowInsetsListener(
+                              (v, insets) -> {
+
+                                  android.graphics.Insets bars =
+                                          insets.getInsets(
+                                                  WindowInsets.Type.systemBars()
+                                          );
+
+                                  v.setPadding(
+                                          0,
+                                          bars.top,
+                                          0,
+                                          bars.bottom
+                                  );
+
+                                  return insets;
+                              }
+                      );
+
+                  } else if (Build.VERSION.SDK_INT >= 23) {
+
+                      root.setOnApplyWindowInsetsListener(
+                              (v, insets) -> {
+
+                                  v.setPadding(
+                                          0,
+                                          insets.getSystemWindowInsetTop(),
+                                          0,
+                                          insets.getSystemWindowInsetBottom()
+                                  );
+
+                                  return insets;
+                              }
+                      );
+                  }
+              }
+
+              private LinearLayout scrollContent() {
+
+                  ScrollView sv =
+                          new ScrollView(this);
+
+                  sv.setFillViewport(true);
+
+                  LinearLayout box =
+                          new LinearLayout(this);
+
+                  box.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  box.setPadding(
+                          dp(16),
+                          dp(12),
+                          dp(16),
+                          dp(24)
+                  );
+
+                  sv.addView(box);
+
+                  root.addView(
+                          sv,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  0,
+                                  1
+                          )
+                  );
+
+                  return box;
+              }
+
+              private void header(
+                      LinearLayout parent,
+                      String title
+              ) {
+
+                  LinearLayout bar =
+                          new LinearLayout(this);
+
+                  bar.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  TextView back =
+                          text(
+                                  "‹ Back",
+                                  16,
+                                  WHITE
+                          );
+
+                  back.setPadding(
+                          0,
+                          0,
+                          dp(12),
+                          0
+                  );
+
+                  back.setOnClickListener(
+                          v -> goBack()
+                  );
+
+                  TextView name =
+                          text(
+                                  title,
+                                  20,
+                                  WHITE
+                          );
+
+                  name.setTypeface(
+                          null,
+                          android.graphics.Typeface.BOLD
+                  );
+
+                  bar.addView(
+                          back,
+                          new LinearLayout.LayoutParams(
+                                  dp(80),
+                                  dp(54)
+                          )
+                  );
+
+                  bar.addView(
+                          name,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(54),
+                                  1
+                          )
+                  );
+
+                  parent.addView(bar);
+              }
+
+              /*
+               * FIX:
+               * Section titles have enough height and font padding,
+               * so LIGHT/COLOR/DETAIL/EFFECTS never get clipped.
+               */
+              private void addSection(
+                      LinearLayout parent,
+                      String title
+              ) {
+
+                  TextView section =
+                          text(
+                                  title,
+                                  14,
+                                  PURPLE
+                          );
+
+                  section.setTypeface(
+                          null,
+                          android.graphics.Typeface.BOLD
+                  );
+
+                  section.setIncludeFontPadding(true);
+
+                  section.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  section.setPadding(
+                          0,
+                          dp(4),
+                          0,
+                          dp(4)
+                  );
+
+                  LinearLayout.LayoutParams p =
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(52)
+                          );
+
+                  p.setMargins(
+                          0,
+                          dp(16),
+                          0,
+                          dp(4)
+                  );
+
+                  parent.addView(
+                          section,
+                          p
+                  );
+              }
+
+              private void card(
+                      LinearLayout parent,
+                      String title,
+                      String sub,
+                      View.OnClickListener click
+              ) {
+
+                  LinearLayout c =
+                          new LinearLayout(this);
+
+                  c.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  c.setPadding(
+                          dp(18),
+                          dp(14),
+                          dp(18),
+                          dp(14)
+                  );
+
+                  c.setBackgroundColor(CARD);
+
+                  TextView a =
+                          text(
+                                  title,
+                                  17,
+                                  WHITE
+                          );
+
+                  a.setTypeface(
+                          null,
+                          android.graphics.Typeface.BOLD
+                  );
+
+                  TextView b =
+                          text(
+                                  sub,
+                                  13,
+                                  GRAY
+                          );
+
+                  c.addView(
+                          a,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(30)
+                          )
+                  );
+
+                  c.addView(
+                          b,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(30)
+                          )
+                  );
+
+                  c.setOnClickListener(click);
+
+                  LinearLayout.LayoutParams p =
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(76)
+                          );
+
+                  p.setMargins(
+                          0,
+                          dp(7),
+                          0,
+                          dp(7)
+                  );
+
+                  parent.addView(c,p);
+              }
+
+              private void show(String screen) {
+
+                  current = screen;
+
+                  base();
+
+                  if (screen.equals("home")) {
+                      home();
+
+                  } else if (screen.equals("photo")) {
+                      photo();
+
+                  } else if (screen.equals("adjust")) {
+                      adjust();
+
+                  } else if (screen.equals("filters")) {
+                      filters();
+                  }
+              }
+
+              private void home() {
+
+                  LinearLayout box =
+                          scrollContent();
+
+                  TextView title =
+                          text(
+                                  "RCINSTAEDIT",
+                                  28,
+                                  WHITE
+                          );
+
+                  title.setTypeface(
+                          null,
+                          android.graphics.Typeface.BOLD
+                  );
+
+                  title.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  box.addView(
+                          title,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(80)
+                          )
+                  );
+
+                  TextView sub =
+                          text(
+                                  "Edit • Create • Inspire",
+                                  15,
+                                  PURPLE
+                          );
+
+                  sub.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  box.addView(
+                          sub,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(40)
+                          )
+                  );
+
+                  addSection(
+                          box,
+                          "EDITORS"
+                  );
+
+                  card(
+                          box,
+                          "📷  PHOTO EDITOR",
+                          "Professional photo editing tools",
+                          v -> {
+                              stack.push(current);
+                              show("photo");
+                          }
+                  );
+
+                  card(
+                          box,
+                          "🎬  VIDEO EDITOR",
+                          "Trim • Speed • Rotate • Mute • Export",
+                          v -> startActivity(
+                                  new Intent(
+                                          MainActivity.this,
+                                          VideoEditorActivity.class
+                                  )
+                          )
+                  );
+
+                  addSection(
+                          box,
+                          "TOOLS"
+                  );
+
+                  card(
+                          box,
+                          "✨  EFFECTS",
+                          "Creative effects and looks",
+                          v -> toast(
+                                  "Effects next stage mein"
+                          )
+                  );
+
+                  card(
+                          box,
+                          "🔀  TRANSITIONS",
+                          "Smooth reel transitions",
+                          v -> toast(
+                                  "Transitions next stage mein"
+                          )
+                  );
+
+                  card(
+                          box,
+                          "🎵  ADD AUDIO FROM PHONE",
+                          "Use your own audio files",
+                          v -> chooseAudio()
+                  );
+
+                  card(
+                          box,
+                          "💾  HIGH QUALITY EXPORT",
+                          "Photo editor → Save Photo",
+                          v -> toast(
+                                  "Photo Editor mein Save Photo use karo"
+                          )
+                  );
+              }
+
+              private void photo() {
+
+                  LinearLayout box =
+                          scrollContent();
+
+                  header(
+                          box,
+                          "Photo Editor"
+                  );
+
+                  Button choose =
+                          new Button(this);
+
+                  choose.setText(
+                          photoUri == null
+                                  ? "📷  CHOOSE PHOTO"
+                                  : "🔄  CHANGE PHOTO"
+                  );
+
+                  choose.setOnClickListener(
+                          v -> choosePhoto()
+                  );
+
+                  box.addView(
+                          choose,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(52)
+                          )
+                  );
+
+                  preview =
+                          new ImageView(this);
+
+                  preview.setBackgroundColor(
+                          Color.BLACK
+                  );
+
+                  preview.setScaleType(
+                          ImageView.ScaleType.FIT_CENTER
+                  );
+
+                  box.addView(
+                          preview,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(300)
+                          )
+                  );
+
+                  addSection(
+                          box,
+                          "EDIT"
+                  );
+
+                  card(
+                          box,
+                          "☀  ADJUST",
+                          "Light • Color • Detail • Effects",
+                          v -> {
+                              stack.push(current);
+                              show("adjust");
+                          }
+                  );
+
+                  card(
+                          box,
+                          "🎨  FILTERS",
+                          "Original • Vivid • Dramatic • Mono • Warm",
+                          v -> {
+                              stack.push(current);
+                              show("filters");
+                          }
+                  );
+
+                  LinearLayout tools =
+                          new LinearLayout(this);
+
+                  tools.setOrientation(
+                          LinearLayout.HORIZONTAL
+                  );
+
+                  Button rotate =
+                          new Button(this);
+
+                  rotate.setText("ROTATE");
+
+                  rotate.setOnClickListener(
+                          v -> {
+                              rotation =
+                                      (rotation+90)%360;
+                              requestPreview();
+                          }
+                  );
+
+                  Button fh =
+                          new Button(this);
+
+                  fh.setText("FLIP H");
+
+                  fh.setOnClickListener(
+                          v -> {
+                              flipH=!flipH;
+                              requestPreview();
+                          }
+                  );
+
+                  Button fv =
+                          new Button(this);
+
+                  fv.setText("FLIP V");
+
+                  fv.setOnClickListener(
+                          v -> {
+                              flipV=!flipV;
+                              requestPreview();
+                          }
+                  );
+
+                  tools.addView(
+                          rotate,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1
+                          )
+                  );
+
+                  tools.addView(
+                          fh,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1
+                          )
+                  );
+
+                  tools.addView(
+                          fv,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1
+                          )
+                  );
+
+                  box.addView(tools);
+
+                  Button crop =
+                          new Button(this);
+
+                  crop.setText(
+                          "✂  CENTER CROP"
+                  );
+
+                  crop.setOnClickListener(
+                          v -> centerCrop()
+                  );
+
+                  box.addView(
+                          crop,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(52)
+                          )
+                  );
+
+                  Button reset =
+                          new Button(this);
+
+                  reset.setText(
+                          "RESET PHOTO"
+                  );
+
+                  reset.setOnClickListener(
+                          v -> resetEdits()
+                  );
+
+                  box.addView(
+                          reset,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(52)
+                          )
+                  );
+
+                  Button save =
+                          new Button(this);
+
+                  save.setText(
+                          "💾  SAVE PHOTO"
+                  );
+
+                  save.setOnClickListener(
+                          v -> savePhoto()
+                  );
+
+                  box.addView(
+                          save,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(58)
+                          )
+                  );
+
+                  updatePreviewImage();
+              }
+
+              private void choosePhoto() {
+
+                  Intent i =
+                          new Intent(
+                                  Intent.ACTION_OPEN_DOCUMENT
+                          );
+
+                  i.setType("image/*");
+
+                  i.addCategory(
+                          Intent.CATEGORY_OPENABLE
+                  );
+
+                  startActivityForResult(i,100);
+              }
+
+              private void chooseAudio() {
+
+                  Intent i =
+                          new Intent(
+                                  Intent.ACTION_OPEN_DOCUMENT
+                          );
+
+                  i.setType("audio/*");
+
+                  i.addCategory(
+                          Intent.CATEGORY_OPENABLE
+                  );
+
+                  startActivityForResult(i,101);
+              }
+
+              @Override
+              protected void onActivityResult(
+                      int requestCode,
+                      int resultCode,
+                      Intent data
+              ) {
+
+                  super.onActivityResult(
+                          requestCode,
+                          resultCode,
+                          data
+                  );
+
+                  if (
+                          resultCode != RESULT_OK ||
+                          data == null ||
+                          data.getData() == null
+                  ) return;
+
+                  if (requestCode == 100) {
+
+                      photoUri =
+                              data.getData();
+
+                      resetValues();
+
+                      loadSmallPreview(
+                              photoUri
+                      );
+
+                      show("photo");
+
+                  } else if (requestCode == 101) {
+
+                      toast(
+                              "Audio selected"
+                      );
+                  }
+              }
+
+              /*
+               * PERFORMANCE:
+               * Preview maximum dimension is 1600px.
+               * Original photo is NOT loaded into RAM for editing.
+               */
+              private void loadSmallPreview(
+                      Uri uri
+              ) {
+
+                  try {
+
+                      InputStream first =
+                              getContentResolver()
+                                      .openInputStream(uri);
+
+                      BitmapFactory.Options bounds =
+                              new BitmapFactory.Options();
+
+                      bounds.inJustDecodeBounds=true;
+
+                      BitmapFactory.decodeStream(
+                              first,
+                              null,
+                              bounds
+                      );
+
+                      if(first!=null)
+                          first.close();
+
+                      int max =
+                              Math.max(
+                                      bounds.outWidth,
+                                      bounds.outHeight
+                              );
+
+                      int sample=1;
+
+                      while(
+                              max/sample > 1600
+                      ) {
+                          sample*=2;
+                      }
+
+                      BitmapFactory.Options opt =
+                              new BitmapFactory.Options();
+
+                      opt.inSampleSize =
+                              Math.max(1,sample);
+
+                      opt.inPreferredConfig =
+                              Bitmap.Config.ARGB_8888;
+
+                      InputStream second =
+                              getContentResolver()
+                                      .openInputStream(uri);
+
+                      previewBitmap =
+                              BitmapFactory.decodeStream(
+                                      second,
+                                      null,
+                                      opt
+                              );
+
+                      if(second!=null)
+                          second.close();
+
+                  } catch(Exception e) {
+
+                      previewBitmap=null;
+
+                      toast(
+                              "Photo load nahi hui"
+                      );
+                  }
+              }
+
+              private void resetValues() {
+
+                  brightness=0;
+                  exposure=0;
+                  brilliance=0;
+                  contrast=0;
+                  highlights=0;
+                  shadows=0;
+                  blackPoint=0;
+                  saturation=0;
+                  vibrance=0;
+                  warmth=0;
+                  tint=0;
+                  hue=0;
+                  sharpness=0;
+                  definition=0;
+                  noise=0;
+                  fade=0;
+                  vignette=0;
+
+                  selectedFilter="Original";
+                  filterIntensity=1f;
+
+                  rotation=0;
+                  flipH=false;
+                  flipV=false;
+              }
+
+              private void resetEdits() {
+
+                  resetValues();
+
+                  requestPreview();
+              }
+
+              private void addSlider(
+                      LinearLayout parent,
+                      String label,
+                      int min,
+                      int max,
+                      int value,
+                      SliderCallback callback
+              ) {
+
+                  LinearLayout row =
+                          new LinearLayout(this);
+
+                  row.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  TextView name =
+                          text(
+                                  label+"  "+value,
+                                  14,
+                                  WHITE
+                          );
+
+                  SeekBar seek =
+                          new SeekBar(this);
+
+                  seek.setMax(
+                          max-min
+                  );
+
+                  seek.setProgress(
+                          value-min
+                  );
+
+                  seek.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                              @Override
+                              public void onProgressChanged(
+                                      SeekBar s,
+                                      int p,
+                                      boolean fromUser
+                              ) {
+
+                                  int val =
+                                          p+min;
+
+                                  name.setText(
+                                          label+"  "+val
+                                  );
+
+                                  callback.onChange(val);
+
+                                  requestPreview();
+                              }
+
+                              @Override
+                              public void onStartTrackingTouch(
+                                      SeekBar s
+                              ) {}
+
+                              @Override
+                              public void onStopTrackingTouch(
+                                      SeekBar s
+                              ) {}
+                          }
+                  );
+
+                  row.addView(
+                          name,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(30)
+                          )
+                  );
+
+                  row.addView(
+                          seek,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(48)
+                          )
+                  );
+
+                  parent.addView(row);
+              }
+
+              private interface SliderCallback {
+                  void onChange(int value);
+              }
+
+              /*
+               * PERFORMANCE:
+               * Slider changes are delayed slightly.
+               * Rapid slider movement doesn't trigger dozens
+               * of immediate rendering operations.
+               */
+              private void requestPreview() {
+
+                  if(previewBitmap==null ||
+                     preview==null)
+                      return;
+
+                  if(previewJob!=null)
+                      uiHandler.removeCallbacks(
+                              previewJob
+                      );
+
+                  previewJob =
+                          () -> updatePreviewImage();
+
+                  uiHandler.postDelayed(
+                          previewJob,
+                          35
+                  );
+              }
+
+              private void updatePreviewImage() {
+
+                  if(
+                          previewBitmap==null ||
+                          preview==null
+                  ) return;
+
+                  Matrix m =
+                          new Matrix();
+
+                  m.postScale(
+                          flipH ? -1f : 1f,
+                          flipV ? -1f : 1f
+                  );
+
+                  m.postRotate(rotation);
+
+                  Bitmap transformed;
+
+                  try {
+
+                      transformed =
+                              Bitmap.createBitmap(
+                                      previewBitmap,
+                                      0,
+                                      0,
+                                      previewBitmap.getWidth(),
+                                      previewBitmap.getHeight(),
+                                      m,
+                                      true
+                              );
+
+                  } catch(Exception e) {
+
+                      transformed =
+                              previewBitmap;
+                  }
+
+                  ColorMatrix cm =
+                          buildColorMatrix();
+
+                  preview.setImageBitmap(
+                          transformed
+                  );
+
+                  preview.setColorFilter(
+                          new ColorMatrixColorFilter(cm)
+                  );
+              }
+
+              private ColorMatrix buildColorMatrix() {
+
+                  ColorMatrix cm =
+                          new ColorMatrix();
+
+                  float c =
+                          1f+
+                          contrast/100f;
+
+                  float bright =
+                          brightness*2.0f+
+                          exposure*1.4f+
+                          brilliance*0.6f;
+
+                  float sat =
+                          1f+
+                          saturation/100f;
+
+                  cm.setSaturation(
+                          Math.max(
+                                  0f,
+                                  sat
+                          )
+                  );
+
+                  ColorMatrix adj =
+                          new ColorMatrix(
+                                  new float[] {
+                                          c,0,0,0,bright,
+                                          0,c,0,0,bright,
+                                          0,0,c,0,bright,
+                                          0,0,0,1,0
+                                  }
+                          );
+
+                  cm.postConcat(adj);
+
+                  if(warmth!=0) {
+
+                      float w =
+                              warmth*0.8f;
+
+                      cm.postConcat(
+                              new ColorMatrix(
+                                      new float[] {
+                                              1,0,0,0,w,
+                                              0,1,0,0,0,
+                                              0,0,1,0,-w,
+                                              0,0,0,1,0
+                                      }
+                              )
+                      );
+                  }
+
+                  if(tint!=0) {
+
+                      float t =
+                              tint*0.6f;
+
+                      cm.postConcat(
+                              new ColorMatrix(
+                                      new float[] {
+                                              1,0,0,0,0,
+                                              0,1,0,0,t,
+                                              0,0,1,0,0,
+                                              0,0,0,1,0
+                                      }
+                              )
+                      );
+                  }
+
+                  ColorMatrix fm =
+                          filterMatrix(
+                                  selectedFilter
+                          );
+
+                  if(filterIntensity<1f) {
+
+                      float[] mix =
+                              new float[20];
+
+                      float[] id =
+                              new ColorMatrix()
+                                      .getArray();
+
+                      float[] f =
+                              fm.getArray();
+
+                      for(int i=0;i<20;i++) {
+
+                          mix[i] =
+                                  id[i]+
+                                  (
+                                      f[i]-id[i]
+                                  )*
+                                  filterIntensity;
+                      }
+
+                      fm =
+                              new ColorMatrix(mix);
+                  }
+
+                  cm.postConcat(fm);
+
+                  /*
+                   * These are lightweight preview approximations.
+                   * Full pixel processing happens only during save.
+                   */
+                  float detail =
+                          (
+                              sharpness+
+                              definition-
+                              noise
+                          )/500f;
+
+                  if(detail!=0) {
+
+                      float dc =
+                              1f+detail;
+
+                      cm.postConcat(
+                              new ColorMatrix(
+                                      new float[] {
+                                              dc,0,0,0,
+                                              128*(1-dc),
+                                              0,dc,0,0,
+                                              128*(1-dc),
+                                              0,0,dc,0,
+                                              128*(1-dc),
+                                              0,0,0,1,0
+                                      }
+                              )
+                      );
+                  }
+
+                  if(fade>0) {
+
+                      float f =
+                              fade/100f;
+
+                      cm.postConcat(
+                              new ColorMatrix(
+                                      new float[] {
+                                              1-f,0,0,0,
+                                              128*f,
+                                              0,1-f,0,0,
+                                              128*f,
+                                              0,0,1-f,0,
+                                              128*f,
+                                              0,0,0,1,0
+                                      }
+                              )
+                      );
+                  }
+
+                  return cm;
+              }
+
+              private ColorMatrix filterMatrix(
+                      String name
+              ) {
+
+                  if(name.equals("Mono")) {
+
+                      ColorMatrix m =
+                              new ColorMatrix();
+
+                      m.setSaturation(0);
+
+                      return m;
+                  }
+
+                  if(name.equals("Silvertone")) {
+
+                      return new ColorMatrix(
+                              new float[] {
+                                      .8f,.2f,0,0,15,
+                                      .8f,.2f,0,0,15,
+                                      .8f,.2f,0,0,15,
+                                      0,0,0,1,0
+                              }
+                      );
+                  }
+
+                  if(name.equals("Noir")) {
+
+                      return new ColorMatrix(
+                              new float[] {
+                                      1.4f,0,0,0,-30,
+                                      1.4f,0,0,0,-30,
+                                      1.4f,0,0,0,-30,
+                                      0,0,0,1,0
+                              }
+                      );
+                  }
+
+                  if(
+                          name.equals("Warm") ||
+                          name.equals("Vivid Warm") ||
+                          name.equals("Dramatic Warm")
+                  ) {
+
+                      return new ColorMatrix(
+                              new float[] {
+                                      1.08f,0,0,0,8,
+                                      0,1,0,0,0,
+                                      0,0,.90f,0,0,
+                                      0,0,0,1,0
+                              }
+                      );
+                  }
+
+                  if(
+                          name.equals("Cool") ||
+                          name.equals("Vivid Cool") ||
+                          name.equals("Dramatic Cool")
+                  ) {
+
+                      return new ColorMatrix(
+                              new float[] {
+                                      .92f,0,0,0,0,
+                                      0,1,0,0,0,
+                                      0,0,1.10f,0,8,
+                                      0,0,0,1,0
+                              }
+                      );
+                  }
+
+                  if(name.equals("Vivid")) {
+
+                      ColorMatrix m =
+                              new ColorMatrix();
+
+                      m.setSaturation(1.35f);
+
+                      return m;
+                  }
+
+                  if(name.equals("Dramatic")) {
+
+                      return new ColorMatrix(
+                              new float[] {
+                                      1.22f,0,0,0,-18,
+                                      0,1.22f,0,0,-18,
+                                      0,0,1.22f,0,-18,
+                                      0,0,0,1,0
+                              }
+                      );
+                  }
+
+                  if(name.equals("Fade")) {
+
+                      return new ColorMatrix(
+                              new float[] {
+                                      .88f,0,0,0,20,
+                                      0,.88f,0,0,20,
+                                      0,0,.88f,0,20,
+                                      0,0,0,1,0
+                              }
+                      );
+                  }
+
+                  return new ColorMatrix();
+              }
+
+              private void adjust() {
+
+                  LinearLayout box =
+                          scrollContent();
+
+                  header(
+                          box,
+                          "Adjust"
+                  );
+
+                  if(previewBitmap==null) {
+
+                      box.addView(
+                              text(
+                                      "Pehle PHOTO CHOOSE karo",
+                                      18,
+                                      WHITE
+                              )
+                      );
+
+                      return;
+                  }
+
+                  preview =
+                          new ImageView(this);
+
+                  preview.setScaleType(
+                          ImageView.ScaleType.FIT_CENTER
+                  );
+
+                  preview.setBackgroundColor(
+                          Color.BLACK
+                  );
+
+                  box.addView(
+                          preview,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(270)
+                          )
+                  );
+
+                  addSection(
+                          box,
+                          "LIGHT"
+                  );
+
+                  addSlider(
+                          box,
+                          "Brightness",
+                          -100,
+                          100,
+                          (int)brightness,
+                          v -> brightness=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Exposure",
+                          -100,
+                          100,
+                          (int)exposure,
+                          v -> exposure=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Brilliance",
+                          -100,
+                          100,
+                          (int)brilliance,
+                          v -> brilliance=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Contrast",
+                          -100,
+                          100,
+                          (int)contrast,
+                          v -> contrast=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Highlights",
+                          -100,
+                          100,
+                          (int)highlights,
+                          v -> highlights=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Shadows",
+                          -100,
+                          100,
+                          (int)shadows,
+                          v -> shadows=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Black Point",
+                          -100,
+                          100,
+                          (int)blackPoint,
+                          v -> blackPoint=v
+                  );
+
+                  addSection(
+                          box,
+                          "COLOR"
+                  );
+
+                  addSlider(
+                          box,
+                          "Saturation",
+                          -100,
+                          100,
+                          (int)saturation,
+                          v -> saturation=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Vibrance",
+                          -100,
+                          100,
+                          (int)vibrance,
+                          v -> vibrance=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Warmth",
+                          -100,
+                          100,
+                          (int)warmth,
+                          v -> warmth=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Tint",
+                          -100,
+                          100,
+                          (int)tint,
+                          v -> tint=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Hue",
+                          -180,
+                          180,
+                          (int)hue,
+                          v -> hue=v
+                  );
+
+                  addSection(
+                          box,
+                          "DETAIL"
+                  );
+
+                  addSlider(
+                          box,
+                          "Sharpness",
+                          0,
+                          100,
+                          (int)sharpness,
+                          v -> sharpness=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Definition",
+                          0,
+                          100,
+                          (int)definition,
+                          v -> definition=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Noise Reduction",
+                          0,
+                          100,
+                          (int)noise,
+                          v -> noise=v
+                  );
+
+                  addSection(
+                          box,
+                          "EFFECTS"
+                  );
+
+                  addSlider(
+                          box,
+                          "Fade",
+                          0,
+                          100,
+                          (int)fade,
+                          v -> fade=v
+                  );
+
+                  addSlider(
+                          box,
+                          "Vignette",
+                          0,
+                          100,
+                          (int)vignette,
+                          v -> vignette=v
+                  );
+
+                  Button reset =
+                          new Button(this);
+
+                  reset.setText(
+                          "RESET ADJUSTMENTS"
+                  );
+
+                  reset.setOnClickListener(
+                          v -> {
+                              resetValues();
+                              show("adjust");
+                          }
+                  );
+
+                  box.addView(
+                          reset,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(56)
+                          )
+                  );
+
+                  updatePreviewImage();
+              }
+
+              private void filters() {
+
+                  LinearLayout box =
+                          scrollContent();
+
+                  header(
+                          box,
+                          "Filters"
+                  );
+
+                  if(previewBitmap==null) {
+
+                      box.addView(
+                              text(
+                                      "Pehle PHOTO CHOOSE karo",
+                                      18,
+                                      WHITE
+                              )
+                      );
+
+                      return;
+                  }
+
+                  preview =
+                          new ImageView(this);
+
+                  preview.setScaleType(
+                          ImageView.ScaleType.FIT_CENTER
+                  );
+
+                  preview.setBackgroundColor(
+                          Color.BLACK
+                  );
+
+                  box.addView(
+                          preview,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(300)
+                          )
+                  );
+
+                  addSection(
+                          box,
+                          "FILTER PRESETS"
+                  );
+
+                  String[] filters = {
+                          "Original",
+                          "Vivid",
+                          "Vivid Warm",
+                          "Vivid Cool",
+                          "Dramatic",
+                          "Dramatic Warm",
+                          "Dramatic Cool",
+                          "Mono",
+                          "Silvertone",
+                          "Noir",
+                          "Warm",
+                          "Cool",
+                          "Fade"
+                  };
+
+                  for(String f:filters) {
+
+                      Button b =
+                              new Button(this);
+
+                      b.setText(f);
+
+                      b.setOnClickListener(
+                              v -> {
+                                  selectedFilter=f;
+                                  requestPreview();
+                              }
+                      );
+
+                      box.addView(
+                              b,
+                              new LinearLayout.LayoutParams(
+                                      -1,
+                                      dp(50)
+                              )
+                      );
+                  }
+
+                  addSection(
+                          box,
+                          "FILTER INTENSITY"
+                  );
+
+                  addSlider(
+                          box,
+                          "Intensity",
+                          0,
+                          100,
+                          (int)(
+                                  filterIntensity*100
+                          ),
+                          v -> filterIntensity=
+                                  v/100f
+                  );
+
+                  updatePreviewImage();
+              }
+
+              private void centerCrop() {
+
+                  if(previewBitmap==null)
+                      return;
+
+                  int size =
+                          Math.min(
+                                  previewBitmap.getWidth(),
+                                  previewBitmap.getHeight()
+                          );
+
+                  int left =
+                          (
+                                  previewBitmap.getWidth()
+                                          -size
+                          )/2;
+
+                  int top =
+                          (
+                                  previewBitmap.getHeight()
+                                          -size
+                          )/2;
+
+                  previewBitmap =
+                          Bitmap.createBitmap(
+                                  previewBitmap,
+                                  left,
+                                  top,
+                                  size,
+                                  size
+                          );
+
+                  requestPreview();
+              }
+
+              /*
+               * Decode original only when saving.
+               * This keeps editing fast while preserving source quality.
+               */
+              private Bitmap loadFullForSave()
+                      throws Exception {
+
+                  InputStream in =
+                          getContentResolver()
+                                  .openInputStream(
+                                          photoUri
+                                  );
+
+                  BitmapFactory.Options opt =
+                          new BitmapFactory.Options();
+
+                  opt.inPreferredConfig =
+                          Bitmap.Config.ARGB_8888;
+
+                  Bitmap b =
+                          BitmapFactory.decodeStream(
+                                  in,
+                                  null,
+                                  opt
+                          );
+
+                  if(in!=null)
+                      in.close();
+
+                  return b;
+              }
+
+              private Bitmap makeFinalBitmap(
+                      Bitmap source
+              ) {
+
+                  Matrix m =
+                          new Matrix();
+
+                  m.postScale(
+                          flipH ? -1f : 1f,
+                          flipV ? -1f : 1f
+                  );
+
+                  m.postRotate(rotation);
+
+                  Bitmap out;
+
+                  try {
+
+                      out =
+                              Bitmap.createBitmap(
+                                      source,
+                                      0,
+                                      0,
+                                      source.getWidth(),
+                                      source.getHeight(),
+                                      m,
+                                      true
+                              );
+
+                  } catch(Exception e) {
+
+                      out=source;
+                  }
+
+                  int w =
+                          out.getWidth();
+
+                  int h =
+                          out.getHeight();
+
+                  int[] px =
+                          new int[w*h];
+
+                  out.getPixels(
+                          px,
+                          0,
+                          w,
+                          0,
+                          0,
+                          w,
+                          h
+                  );
+
+                  float cf =
+                          1f+
+                          contrast/100f;
+
+                  float bf =
+                          brightness*2.55f+
+                          exposure*1.8f+
+                          brilliance*0.8f;
+
+                  float sat =
+                          1f+
+                          saturation/100f;
+
+                  for(int i=0;i<px.length;i++) {
+
+                      int col=px[i];
+
+                      float r=
+                              Color.red(col);
+
+                      float g=
+                              Color.green(col);
+
+                      float bl=
+                              Color.blue(col);
+
+                      r=(r-128)*cf+128+bf;
+                      g=(g-128)*cf+128+bf;
+                      bl=(bl-128)*cf+128+bf;
+
+                      float gray=
+                              .299f*r+
+                              .587f*g+
+                              .114f*bl;
+
+                      r=
+                              gray+
+                              (r-gray)*sat;
+
+                      g=
+                              gray+
+                              (g-gray)*sat;
+
+                      bl=
+                              gray+
+                              (bl-gray)*sat;
+
+                      r += warmth*.9f;
+                      bl -= warmth*.9f;
+
+                      g += tint*.7f;
+
+                      if(fade>0) {
+
+                          float f=
+                                  fade/100f;
+
+                          r=r*(1-f)+128*f;
+                          g=g*(1-f)+128*f;
+                          bl=bl*(1-f)+128*f;
+                      }
+
+                      if(vignette>0) {
+
+                          int x=i%w;
+                          int y=i/w;
+
+                          float dx=
+                                  (
+                                          x-w/2f
+                                  )/(w/2f);
+
+                          float dy=
+                                  (
+                                          y-h/2f
+                                  )/(h/2f);
+
+                          float d=
+                                  Math.min(
+                                          1f,
+                                          (float)Math.sqrt(
+                                                  dx*dx+
+                                                  dy*dy
+                                          )
+                                  );
+
+                          float factor=
+                                  1f-
+                                  (
+                                          vignette/100f
+                                  )*
+                                  d*.75f;
+
+                          r*=factor;
+                          g*=factor;
+                          bl*=factor;
+                      }
+
+                      px[i]=Color.rgb(
+                              clamp(r),
+                              clamp(g),
+                              clamp(bl)
+                      );
+                  }
+
+                  out.setPixels(
+                          px,
+                          0,
+                          w,
+                          0,
+                          0,
+                          w,
+                          h
+                  );
+
+                  return out;
+              }
+
+              private int clamp(float x) {
+
+                  return Math.max(
+                          0,
+                          Math.min(
+                                  255,
+                                  Math.round(x)
+                          )
+                  );
+              }
+
+              private void savePhoto() {
+
+                  if(photoUri==null) {
+
+                      toast(
+                              "Pehle photo choose karo"
+                      );
+
+                      return;
+                  }
+
+                  toast(
+                          "Saving high quality photo..."
+                  );
+
+                  new Thread(
+                          () -> {
+
+                              try {
+
+                                  Bitmap source =
+                                          loadFullForSave();
+
+                                  if(source==null)
+                                      throw new Exception(
+                                              "Decode failed"
+                                      );
+
+                                  Bitmap out =
+                                          makeFinalBitmap(
+                                                  source
+                                          );
+
+                                  ContentValues v =
+                                          new ContentValues();
+
+                                  v.put(
+                                          MediaStore.Images.Media.DISPLAY_NAME,
+                                          "RCINSTAEDIT_"+
+                                          System.currentTimeMillis()+
+                                          ".jpg"
+                                  );
+
+                                  v.put(
+                                          MediaStore.Images.Media.MIME_TYPE,
+                                          "image/jpeg"
+                                  );
+
+                                  if(
+                                          Build.VERSION.SDK_INT>=29
+                                  ) {
+
+                                      v.put(
+                                              MediaStore.Images.Media.RELATIVE_PATH,
+                                              "Pictures/RCINSTAEDIT"
+                                      );
+                                  }
+
+                                  Uri uri =
+                                          getContentResolver()
+                                                  .insert(
+                                                          MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                                          v
+                                                  );
+
+                                  if(uri==null)
+                                      throw new Exception(
+                                              "Gallery insert failed"
+                                      );
+
+                                  OutputStream os =
+                                          getContentResolver()
+                                                  .openOutputStream(
+                                                          uri
+                                                  );
+
+                                  out.compress(
+                                          Bitmap.CompressFormat.JPEG,
+                                          96,
+                                          os
+                                  );
+
+                                  if(os!=null)
+                                      os.close();
+
+                                  source.recycle();
+
+                                  if(
+                                          out!=source &&
+                                          !out.isRecycled()
+                                  ) {
+                                      out.recycle();
+                                  }
+
+                                  runOnUiThread(
+                                          () -> toast(
+                                                  "Photo saved"
+                                          )
+                                  );
+
+                              } catch(
+                                      OutOfMemoryError e
+                              ) {
+
+                                  runOnUiThread(
+                                          () -> toast(
+                                                  "Photo bahut badi hai. Smaller photo try karo."
+                                          )
+                                  );
+
+                              } catch(Exception e) {
+
+                                  runOnUiThread(
+                                          () -> toast(
+                                                  "Photo save nahi hui"
+                                          )
+                                  );
+                              }
+
+                          }
+                  ).start();
+              }
+
+              private void toast(String s) {
+
+                  Toast.makeText(
+                          this,
+                          s,
+                          Toast.LENGTH_SHORT
+                  ).show();
+              }
+
+              private void goBack() {
+
+                  if(!stack.isEmpty()) {
+
+                      String previous =
+                              stack.pop();
+
+                      show(previous);
+
+                  } else {
+
+                      finish();
+                  }
+              }
+
+              @Override
+              public void onBackPressed() {
+
+                  if(!stack.isEmpty()) {
+                      goBack();
+                  } else {
+                      super.onBackPressed();
+                  }
+              }
+
+              @Override
+              protected void onDestroy() {
+
+                  if(previewJob!=null)
+                      uiHandler.removeCallbacks(
+                              previewJob
+                      );
+
+                  if(
+                          previewBitmap!=null &&
+                          !previewBitmap.isRecycled()
+                  ) {
+                      previewBitmap.recycle();
+                      previewBitmap=null;
+                  }
+
+                  super.onDestroy();
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/rcinstaedit/VideoEditorActivity.java <<'EOF'
+          package com.rcinstaedit;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.os.Build;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.content.ContentValues;
+          import android.content.Intent;
+          import android.media.MediaExtractor;
+          import android.media.MediaFormat;
+          import android.media.MediaMuxer;
+          import android.media.MediaPlayer;
+          import android.net.Uri;
+          import android.provider.MediaStore;
+          import android.graphics.Color;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.view.WindowInsets;
+          import android.widget.Button;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.SeekBar;
+          import android.widget.TextView;
+          import android.widget.VideoView;
+          import android.widget.Toast;
+
+          import java.io.File;
+          import java.io.InputStream;
+          import java.io.OutputStream;
+          import java.nio.ByteBuffer;
+          import java.util.Arrays;
+
+          public class VideoEditorActivity extends Activity {
+
+              private VideoView videoView;
+
+              private SeekBar timeline;
+              private SeekBar startBar;
+              private SeekBar endBar;
+
+              private TextView timeText;
+              private TextView speedText;
+
+              private Uri videoUri;
+
+              private int durationMs=0;
+              private int trimStartMs=0;
+              private int trimEndMs=0;
+
+              private float speed=1f;
+              private boolean muted=false;
+              private int rotation=0;
+
+              private MediaPlayer player;
+
+              private final Handler handler=
+                      new Handler(
+                              Looper.getMainLooper()
+                      );
+
+              private final Runnable ticker=
+                      new Runnable() {
+
+                          @Override
+                          public void run() {
+
+                              updateTime();
+
+                              handler.postDelayed(
+                                      this,
+                                      250
+                              );
+                          }
+                      };
+
+              private final int BG=
+                      Color.rgb(8,8,13);
+
+              private final int WHITE=
+                      Color.WHITE;
+
+              private final int PURPLE=
+                      Color.rgb(170,145,255);
+
+              @Override
+              protected void onCreate(Bundle b) {
+
+                  super.onCreate(b);
+
+                  build();
+
+                  handler.post(ticker);
+              }
+
+              private int dp(int v) {
+
+                  return (int)(
+                          v*
+                          getResources()
+                                  .getDisplayMetrics()
+                                  .density
+                          +.5f
+                  );
+              }
+
+              private TextView text(
+                      String s,
+                      int size,
+                      int color
+              ) {
+
+                  TextView t=
+                          new TextView(this);
+
+                  t.setText(s);
+                  t.setTextSize(size);
+                  t.setTextColor(color);
+                  t.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+                  t.setIncludeFontPadding(true);
+
+                  return t;
+              }
+
+              private void build() {
+
+                  LinearLayout root=
+                          new LinearLayout(this);
+
+                  root.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  root.setBackgroundColor(BG);
+
+                  setContentView(root);
+
+                  if(Build.VERSION.SDK_INT>=30) {
+
+                      root.setOnApplyWindowInsetsListener(
+                              (v,insets)->{
+
+                                  android.graphics.Insets bars=
+                                          insets.getInsets(
+                                                  WindowInsets.Type.systemBars()
+                                          );
+
+                                  v.setPadding(
+                                          0,
+                                          bars.top,
+                                          0,
+                                          bars.bottom
+                                  );
+
+                                  return insets;
+                              }
+                      );
+                  }
+
+                  LinearLayout top=
+                          new LinearLayout(this);
+
+                  top.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  Button back=
+                          new Button(this);
+
+                  back.setText("‹ Back");
+
+                  back.setOnClickListener(
+                          v -> finish()
+                  );
+
+                  TextView title=
+                          text(
+                                  "Video Editor",
+                                  20,
+                                  WHITE
+                          );
+
+                  title.setTypeface(
+                          null,
+                          android.graphics.Typeface.BOLD
+                  );
+
+                  top.addView(
+                          back,
+                          new LinearLayout.LayoutParams(
+                                  dp(85),
+                                  dp(54)
+                          )
+                  );
+
+                  top.addView(
+                          title,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(54),
+                                  1
+                          )
+                  );
+
+                  root.addView(top);
+
+                  ScrollView scroll=
+                          new ScrollView(this);
+
+                  LinearLayout box=
+                          new LinearLayout(this);
+
+                  box.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  box.setPadding(
+                          dp(16),
+                          dp(8),
+                          dp(16),
+                          dp(24)
+                  );
+
+                  scroll.addView(box);
+
+                  root.addView(
+                          scroll,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  0,
+                                  1
+                          )
+                  );
+
+                  Button choose=
+                          new Button(this);
+
+                  choose.setText(
+                          "🎬  CHOOSE VIDEO"
+                  );
+
+                  choose.setOnClickListener(
+                          v -> chooseVideo()
+                  );
+
+                  box.addView(
+                          choose,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(54)
+                          )
+                  );
+
+                  videoView=
+                          new VideoView(this);
+
+                  videoView.setBackgroundColor(
+                          Color.BLACK
+                  );
+
+                  box.addView(
+                          videoView,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(300)
+                          )
+                  );
+
+                  LinearLayout controls=
+                          new LinearLayout(this);
+
+                  controls.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  Button rewind=
+                          new Button(this);
+
+                  rewind.setText("↶ 5s");
+
+                  rewind.setOnClickListener(
+                          v -> {
+
+                              if(videoView!=null)
+                                  videoView.seekTo(
+                                          Math.max(
+                                                  0,
+                                                  videoView
+                                                          .getCurrentPosition()
+                                                          -5000
+                                          )
+                                  );
+                          }
+                  );
+
+                  Button play=
+                          new Button(this);
+
+                  play.setText("▶ / ⏸");
+
+                  play.setOnClickListener(
+                          v -> {
+
+                              if(videoView.isPlaying())
+                                  videoView.pause();
+                              else
+                                  videoView.start();
+                          }
+                  );
+
+                  Button forward=
+                          new Button(this);
+
+                  forward.setText("5s ↷");
+
+                  forward.setOnClickListener(
+                          v -> {
+
+                              if(videoView!=null)
+                                  videoView.seekTo(
+                                          Math.min(
+                                                  durationMs,
+                                                  videoView
+                                                          .getCurrentPosition()
+                                                          +5000
+                                          )
+                                  );
+                          }
+                  );
+
+                  controls.addView(
+                          rewind,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1
+                          )
+                  );
+
+                  controls.addView(
+                          play,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1
+                          )
+                  );
+
+                  controls.addView(
+                          forward,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1
+                          )
+                  );
+
+                  box.addView(controls);
+
+                  timeText=
+                          text(
+                                  "00:00 / 00:00",
+                                  14,
+                                  WHITE
+                          );
+
+                  timeText.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  box.addView(
+                          timeText,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(38)
+                          )
+                  );
+
+                  timeline=
+                          new SeekBar(this);
+
+                  timeline.setMax(1000);
+
+                  timeline.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                              @Override
+                              public void onProgressChanged(
+                                      SeekBar s,
+                                      int p,
+                                      boolean fromUser
+                              ) {
+
+                                  if(
+                                          fromUser &&
+                                          durationMs>0
+                                  ) {
+
+                                      videoView.seekTo(
+                                              durationMs*p/1000
+                                      );
+                                  }
+                              }
+
+                              @Override
+                              public void onStartTrackingTouch(
+                                      SeekBar s
+                              ) {}
+
+                              @Override
+                              public void onStopTrackingTouch(
+                                      SeekBar s
+                              ) {}
+                          }
+                  );
+
+                  box.addView(
+                          timeline,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(48)
+                          )
+                  );
+
+                  section(
+                          box,
+                          "TRIM"
+                  );
+
+                  TextView st=
+                          text(
+                                  "Trim Start  00:00",
+                                  14,
+                                  WHITE
+                          );
+
+                  box.addView(st);
+
+                  startBar=
+                          new SeekBar(this);
+
+                  startBar.setMax(1000);
+
+                  startBar.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                              @Override
+                              public void onProgressChanged(
+                                      SeekBar s,
+                                      int p,
+                                      boolean fromUser
+                              ) {
+
+                                  trimStartMs=
+                                          durationMs*p/1000;
+
+                                  if(
+                                          trimStartMs>=trimEndMs &&
+                                          trimEndMs>0
+                                  ) {
+
+                                      trimStartMs=
+                                              Math.max(
+                                                      0,
+                                                      trimEndMs-1000
+                                              );
+                                  }
+
+                                  st.setText(
+                                          "Trim Start  "+
+                                          format(trimStartMs)
+                                  );
+                              }
+
+                              @Override
+                              public void onStartTrackingTouch(
+                                      SeekBar s
+                              ) {}
+
+                              @Override
+                              public void onStopTrackingTouch(
+                                      SeekBar s
+                              ) {}
+                          }
+                  );
+
+                  box.addView(
+                          startBar,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(48)
+                          )
+                  );
+
+                  TextView et=
+                          text(
+                                  "Trim End",
+                                  14,
+                                  WHITE
+                          );
+
+                  box.addView(et);
+
+                  endBar=
+                          new SeekBar(this);
+
+                  endBar.setMax(1000);
+                  endBar.setProgress(1000);
+
+                  endBar.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                              @Override
+                              public void onProgressChanged(
+                                      SeekBar s,
+                                      int p,
+                                      boolean fromUser
+                              ) {
+
+                                  trimEndMs=
+                                          durationMs*p/1000;
+
+                                  if(
+                                          trimEndMs<=trimStartMs &&
+                                          durationMs>0
+                                  ) {
+
+                                      trimEndMs=
+                                              Math.min(
+                                                      durationMs,
+                                                      trimStartMs+1000
+                                              );
+                                  }
+
+                                  et.setText(
+                                          "Trim End  "+
+                                          format(trimEndMs)
+                                  );
+                              }
+
+                              @Override
+                              public void onStartTrackingTouch(
+                                      SeekBar s
+                              ) {}
+
+                              @Override
+                              public void onStopTrackingTouch(
+                                      SeekBar s
+                              ) {}
+                          }
+                  );
+
+                  box.addView(
+                          endBar,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(48)
+                          )
+                  );
+
+                  section(
+                          box,
+                          "SPEED"
+                  );
+
+                  speedText=
+                          text(
+                                  "Speed 1x",
+                                  15,
+                                  WHITE
+                          );
+
+                  box.addView(
+                          speedText,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(38)
+                          )
+                  );
+
+                  String[] speeds={
+                          "0.25x",
+                          "0.5x",
+                          "1x",
+                          "1.5x",
+                          "2x",
+                          "4x"
+                  };
+
+                  for(String s:speeds) {
+
+                      Button b=
+                              new Button(this);
+
+                      b.setText(s);
+
+                      b.setOnClickListener(
+                              v -> setSpeed(
+                                      Float.parseFloat(
+                                              s.replace("x","")
+                                      )
+                              )
+                      );
+
+                      box.addView(
+                              b,
+                              new LinearLayout.LayoutParams(
+                                      -1,
+                                      dp(48)
+                              )
+                      );
+                  }
+
+                  section(
+                          box,
+                          "TOOLS"
+                  );
+
+                  Button rotate=
+                          new Button(this);
+
+                  rotate.setText(
+                          "⟳  ROTATE 90°"
+                  );
+
+                  rotate.setOnClickListener(
+                          v -> {
+
+                              rotation=
+                                      (rotation+90)%360;
+
+                              videoView.setRotation(
+                                      rotation
+                              );
+                          }
+                  );
+
+                  box.addView(
+                          rotate,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(52)
+                          )
+                  );
+
+                  Button mute=
+                          new Button(this);
+
+                  mute.setText(
+                          "🔇  MUTE / UNMUTE"
+                  );
+
+                  mute.setOnClickListener(
+                          v -> toggleMute()
+                  );
+
+                  box.addView(
+                          mute,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(52)
+                          )
+                  );
+
+                  Button export=
+                          new Button(this);
+
+                  export.setText(
+                          "💾  EXPORT MP4"
+                  );
+
+                  export.setOnClickListener(
+                          v -> exportVideo()
+                  );
+
+                  box.addView(
+                          export,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(60)
+                          )
+                  );
+
+                  videoView.setOnPreparedListener(
+                          mp -> {
+
+                              player=mp;
+
+                              durationMs=
+                                      mp.getDuration();
+
+                              trimStartMs=0;
+                              trimEndMs=durationMs;
+
+                              startBar.setProgress(0);
+                              endBar.setProgress(1000);
+
+                              if(
+                                      Build.VERSION.SDK_INT>=23
+                              ) {
+
+                                  try {
+
+                                      mp.setPlaybackParams(
+                                              mp.getPlaybackParams()
+                                                      .setSpeed(speed)
+                                      );
+
+                                  } catch(Exception ignored) {}
+                              }
+
+                              applyMute();
+
+                              updateTime();
+                          }
+                  );
+
+                  videoView.setOnCompletionListener(
+                          mp -> updateTime()
+                  );
+              }
+
+              private void section(
+                      LinearLayout parent,
+                      String title
+              ) {
+
+                  TextView t=
+                          text(
+                                  title,
+                                  14,
+                                  PURPLE
+                          );
+
+                  t.setTypeface(
+                          null,
+                          android.graphics.Typeface.BOLD
+                  );
+
+                  t.setIncludeFontPadding(true);
+
+                  t.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  t.setPadding(
+                          0,
+                          dp(4),
+                          0,
+                          dp(4)
+                  );
+
+                  LinearLayout.LayoutParams p=
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(52)
+                          );
+
+                  p.setMargins(
+                          0,
+                          dp(16),
+                          0,
+                          dp(4)
+                  );
+
+                  parent.addView(t,p);
+              }
+
+              private void chooseVideo() {
+
+                  Intent i=
+                          new Intent(
+                                  Intent.ACTION_OPEN_DOCUMENT
+                          );
+
+                  i.setType("video/*");
+
+                  i.addCategory(
+                          Intent.CATEGORY_OPENABLE
+                  );
+
+                  startActivityForResult(i,200);
+              }
+
+              @Override
+              protected void onActivityResult(
+                      int requestCode,
+                      int resultCode,
+                      Intent data
+              ) {
+
+                  super.onActivityResult(
+                          requestCode,
+                          resultCode,
+                          data
+                  );
+
+                  if(
+                          requestCode!=200 ||
+                          resultCode!=RESULT_OK ||
+                          data==null ||
+                          data.getData()==null
+                  )
+                      return;
+
+                  videoUri=
+                          data.getData();
+
+                  trimStartMs=0;
+                  trimEndMs=0;
+
+                  videoView.setVideoURI(
+                          videoUri
+                  );
+
+                  videoView.requestFocus();
+              }
+
+              private void setSpeed(float s) {
+
+                  speed=s;
+
+                  speedText.setText(
+                          "Speed  "+s+"x"
+                  );
+
+                  if(
+                          player!=null &&
+                          Build.VERSION.SDK_INT>=23
+                  ) {
+
+                      try {
+
+                          player.setPlaybackParams(
+                                  player
+                                          .getPlaybackParams()
+                                          .setSpeed(s)
+                          );
+
+                      } catch(Exception ignored) {}
+                  }
+              }
+
+              private void toggleMute() {
+
+                  muted=!muted;
+
+                  applyMute();
+              }
+
+              private void applyMute() {
+
+                  if(player!=null) {
+
+                      player.setVolume(
+                              muted ? 0f : 1f,
+                              muted ? 0f : 1f
+                      );
+                  }
+              }
+
+              private void updateTime() {
+
+                  if(
+                          videoView==null ||
+                          durationMs<=0
+                  )
+                      return;
+
+                  int pos=
+                          videoView.getCurrentPosition();
+
+                  timeline.setProgress(
+                          pos*1000/durationMs
+                  );
+
+                  timeText.setText(
+                          format(pos)+
+                          " / "+
+                          format(durationMs)
+                  );
+              }
+
+              private String format(int ms) {
+
+                  int sec=
+                          Math.max(
+                                  0,
+                                  ms
+                          )/1000;
+
+                  int m=sec/60;
+                  int s=sec%60;
+
+                  return String.format(
+                          "%02d:%02d",
+                          m,
+                          s
+                  );
+              }
+
+              private void exportVideo() {
+
+                  if(videoUri==null) {
+
+                      toast(
+                              "Pehle video choose karo"
+                      );
+
+                      return;
+                  }
+
+                  if(
+                          trimEndMs<=trimStartMs
+                  ) {
+
+                      toast(
+                              "Trim range galat hai"
+                      );
+
+                      return;
+                  }
+
+                  toast(
+                          "Exporting video..."
+                  );
+
+                  new Thread(
+                          () -> {
+
+                              try {
+
+                                  File outFile=
+                                          new File(
+                                                  getCacheDir(),
+                                                  "rcinstaedit_"+
+                                                  System.currentTimeMillis()+
+                                                  ".mp4"
+                                          );
+
+                                  remux(
+                                          videoUri,
+                                          outFile,
+                                          trimStartMs,
+                                          trimEndMs
+                                  );
+
+                                  saveToGallery(
+                                          outFile
+                                  );
+
+                                  runOnUiThread(
+                                          () -> toast(
+                                                  "Video exported"
+                                          )
+                                  );
+
+                              } catch(Exception e) {
+
+                                  runOnUiThread(
+                                          () -> toast(
+                                                  "Export failed"
+                                          )
+                                  );
+                              }
+
+                          }
+                  ).start();
+              }
+
+              private void remux(
+                      Uri uri,
+                      File output,
+                      long startMs,
+                      long endMs
+              ) throws Exception {
+
+                  MediaExtractor extractor=
+                          new MediaExtractor();
+
+                  extractor.setDataSource(
+                          this,
+                          uri,
+                          null
+                  );
+
+                  int count=
+                          extractor.getTrackCount();
+
+                  MediaMuxer muxer=
+                          new MediaMuxer(
+                                  output.getAbsolutePath(),
+                                  MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
+                          );
+
+                  int[] map=
+                          new int[count];
+
+                  Arrays.fill(
+                          map,
+                          -1
+                  );
+
+                  for(int i=0;i<count;i++) {
+
+                      MediaFormat f=
+                              extractor.getTrackFormat(i);
+
+                      String mime=
+                              f.getString(
+                                      MediaFormat.KEY_MIME
+                              );
+
+                      if(
+                              mime!=null &&
+                              (
+                                      mime.startsWith("video/")
+                                      ||
+                                      (
+                                              mime.startsWith("audio/")
+                                              && !muted
+                                      )
+                              )
+                      ) {
+
+                          map[i]=
+                                  muxer.addTrack(f);
+                      }
+                  }
+
+                  if(rotation!=0) {
+
+                      try {
+
+                          muxer.setOrientationHint(
+                                  rotation
+                          );
+
+                      } catch(Exception ignored) {}
+                  }
+
+                  muxer.start();
+
+                  int bufferSize=
+                          1024*1024;
+
+                  for(int i=0;i<count;i++) {
+
+                      MediaFormat f=
+                              extractor.getTrackFormat(i);
+
+                      if(
+                              f.containsKey(
+                                      MediaFormat.KEY_MAX_INPUT_SIZE
+                              )
+                      ) {
+
+                          bufferSize=
+                                  Math.max(
+                                          bufferSize,
+                                          f.getInteger(
+                                                  MediaFormat.KEY_MAX_INPUT_SIZE
+                                          )
+                                  );
+                      }
+                  }
+
+                  ByteBuffer buffer=
+                          ByteBuffer.allocateDirect(
+                                  bufferSize
+                          );
+
+                  android.media.MediaCodec.BufferInfo info=
+                          new android.media.MediaCodec.BufferInfo();
+
+                  long startUs=
+                          startMs*1000L;
+
+                  long endUs=
+                          endMs*1000L;
+
+                  for(int i=0;i<count;i++) {
+
+                      if(map[i]<0)
+                          continue;
+
+                      extractor.selectTrack(i);
+
+                      extractor.seekTo(
+                              startUs,
+                              MediaExtractor.SEEK_TO_CLOSEST_SYNC
+                      );
+
+                      while(true) {
+
+                          int track=
+                                  extractor.getSampleTrackIndex();
+
+                          if(track<0)
+                              break;
+
+                          long pts=
+                                  extractor.getSampleTime();
+
+                          if(pts<startUs) {
+
+                              extractor.advance();
+                              continue;
+                          }
+
+                          if(pts>endUs)
+                              break;
+
+                          buffer.clear();
+
+                          int size=
+                                  extractor.readSampleData(
+                                          buffer,
+                                          0
+                                  );
+
+                          if(size<0)
+                              break;
+
+                          long newPts=
+                                  (long)(
+                                          (pts-startUs)/
+                                          speed
+                                  );
+
+                          info.offset=0;
+                          info.size=size;
+                          info.presentationTimeUs=
+                                  Math.max(
+                                          0,
+                                          newPts
+                                  );
+
+                          info.flags=
+                                  extractor.getSampleFlags();
+
+                          muxer.writeSampleData(
+                                  map[i],
+                                  buffer,
+                                  info
+                          );
+
+                          extractor.advance();
+                      }
+
+                      extractor.unselectTrack(i);
+                  }
+
+                  muxer.stop();
+                  muxer.release();
+                  extractor.release();
+              }
+
+              private void saveToGallery(
+                      File file
+              ) throws Exception {
+
+                  ContentValues v=
+                          new ContentValues();
+
+                  v.put(
+                          MediaStore.Video.Media.DISPLAY_NAME,
+                          "RCINSTAEDIT_"+
+                          System.currentTimeMillis()+
+                          ".mp4"
+                  );
+
+                  v.put(
+                          MediaStore.Video.Media.MIME_TYPE,
+                          "video/mp4"
+                  );
+
+                  if(Build.VERSION.SDK_INT>=29) {
+
+                      v.put(
+                              MediaStore.Video.Media.RELATIVE_PATH,
+                              "Movies/RCINSTAEDIT"
+                      );
+                  }
+
+                  Uri uri=
+                          getContentResolver()
+                                  .insert(
+                                          MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                                          v
+                                  );
+
+                  if(uri==null)
+                      throw new Exception(
+                              "Gallery insert failed"
+                      );
+
+                  OutputStream out=
+                          getContentResolver()
+                                  .openOutputStream(
+                                          uri
+                                  );
+
+                  InputStream in=
+                          new java.io.FileInputStream(
+                                  file
+                          );
+
+                  byte[] buffer=
+                          new byte[64*1024];
+
+                  int n;
+
+                  while(
+                          (n=in.read(buffer))!=-1
+                  ) {
+
+                      out.write(
+                              buffer,
+                              0,
+                              n
+                      );
+                  }
+
+                  in.close();
+                  out.close();
+              }
+
+              private void toast(String s) {
+
+                  Toast.makeText(
+                          this,
+                          s,
+                          Toast.LENGTH_SHORT
+                  ).show();
+              }
+
+              @Override
+              protected void onDestroy() {
+
+                  handler.removeCallbacks(
+                          ticker
+                  );
+
+                  if(videoView!=null)
+                      videoView.stopPlayback();
+
+                  player=null;
+
+                  super.onDestroy();
+              }
+          }
+          EOF
+
+      - name: Verify Project
+        shell: bash
+        run: |
+          set -e
+
+          test -f app/src/main/java/com/rcinstaedit/MainActivity.java
+          test -f app/src/main/java/com/rcinstaedit/VideoEditorActivity.java
+          test -f app/src/main/AndroidManifest.xml
+
+          echo "RCINSTAEDIT performance build verified"
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -e
+
+          if [ ! -f gradlew ]; then
+            gradle wrapper --gradle-version 8.9
+          fi
+
+          chmod +x gradlew
+
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCINSTAEDIT-Performance-Build-7
+          path: app/build/outputs/apk/debug/app-debug.apk
