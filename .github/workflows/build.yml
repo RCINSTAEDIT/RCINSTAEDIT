@@ -1,1 +1,2614 @@
+name: Build RCINSTAEDIT
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Create Android Project
+        shell: bash
+        run: |
+          set -e
+
+          mkdir -p app/src/main/java/com/rcinstaedit/app
+          mkdir -p app/src/main/res/values
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "RCINSTAEDIT"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=false
+          android.nonTransitiveRClass=true
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.rcinstaedit.app'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId "com.rcinstaedit.app"
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName "1.0"
+              }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+          cat > app/src/main/res/values/colors.xml <<'EOF'
+          <resources>
+              <color name="black">#080808</color>
+              <color name="white">#FFFFFF</color>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/values/themes.xml <<'EOF'
+          <resources>
+              <style name="AppTheme"
+                  parent="@android:style/Theme.Material.NoActionBar">
+
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#080808</item>
+                  <item name="android:navigationBarColor">#080808</item>
+                  <item name="android:colorAccent">#9C7CFF</item>
+                  <item name="android:windowNoTitle">true</item>
+
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+
+              <application
+                  android:allowBackup="true"
+                  android:label="RCINSTAEDIT"
+                  android:theme="@style/AppTheme"
+                  android:resizeableActivity="true">
+
+                  <activity
+                      android:name=".PhotoEditorActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="false"/>
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="true"
+                      android:enableOnBackInvokedCallback="true">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+
+                  </activity>
+
+              </application>
+
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/rcinstaedit/app/MainActivity.java <<'EOF'
+          package com.rcinstaedit.app;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.graphics.Color;
+          import android.graphics.Typeface;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.view.Window;
+          import android.content.Intent;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.TextView;
+
+          public class MainActivity extends Activity {
+
+              private int dp(float value) {
+                  return (int)(value *
+                          getResources().getDisplayMetrics().density + 0.5f);
+              }
+
+              private TextView text(
+                      String value,
+                      float size,
+                      int color
+              ) {
+                  TextView t = new TextView(this);
+                  t.setText(value);
+                  t.setTextSize(size);
+                  t.setTextColor(color);
+                  t.setGravity(Gravity.CENTER_VERTICAL);
+                  t.setIncludeFontPadding(true);
+                  return t;
+              }
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  Window window = getWindow();
+                  window.setStatusBarColor(Color.rgb(8,8,8));
+                  window.setNavigationBarColor(Color.rgb(8,8,8));
+
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(
+                          dp(18),
+                          dp(20),
+                          dp(18),
+                          dp(24)
+                  );
+                  root.setBackgroundColor(Color.rgb(8,8,8));
+
+                  TextView title = text(
+                          "RCINSTAEDIT",
+                          28,
+                          Color.WHITE
+                  );
+
+                  title.setTypeface(null, Typeface.BOLD);
+
+                  root.addView(
+                          title,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(58)
+                          )
+                  );
+
+                  TextView subtitle = text(
+                          "Edit • Create • Inspire\n" +
+                          "Professional Photo & Reel Editor",
+                          14,
+                          Color.LTGRAY
+                  );
+
+                  subtitle.setMaxLines(2);
+
+                  root.addView(
+                          subtitle,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(68)
+                          )
+                  );
+
+                  addCard(
+                          root,
+                          "PHOTO EDITOR",
+                          "Adjust • Filters • Crop • Rotate • Detail",
+                          v -> startActivity(
+                                  new Intent(
+                                          MainActivity.this,
+                                          PhotoEditorActivity.class
+                                  )
+                          )
+                  );
+
+                  addCard(
+                          root,
+                          "VIDEO EDITOR",
+                          "Video editing workspace",
+                          v -> {}
+                  );
+
+                  addCard(
+                          root,
+                          "EFFECTS",
+                          "Professional visual effects",
+                          v -> {}
+                  );
+
+                  addCard(
+                          root,
+                          "TRANSITIONS",
+                          "Smooth reel transitions",
+                          v -> {}
+                  );
+
+                  addCard(
+                          root,
+                          "ADD AUDIO FROM PHONE",
+                          "Use audio from your device",
+                          v -> {}
+                  );
+
+                  addCard(
+                          root,
+                          "HIGH QUALITY EXPORT",
+                          "Export your creations",
+                          v -> {}
+                  );
+
+                  ScrollView scroll = new ScrollView(this);
+                  scroll.setFillViewport(true);
+                  scroll.addView(root);
+
+                  setContentView(scroll);
+              }
+
+              private void addCard(
+                      LinearLayout parent,
+                      String title,
+                      String subtitle,
+                      View.OnClickListener listener
+              ) {
+
+                  LinearLayout card = new LinearLayout(this);
+
+                  card.setOrientation(LinearLayout.VERTICAL);
+                  card.setGravity(Gravity.CENTER_VERTICAL);
+                  card.setPadding(
+                          dp(18),
+                          dp(9),
+                          dp(18),
+                          dp(9)
+                  );
+
+                  card.setBackgroundColor(
+                          Color.rgb(25,25,29)
+                  );
+
+                  card.setOnClickListener(listener);
+
+                  TextView t = text(
+                          title,
+                          15,
+                          Color.WHITE
+                  );
+
+                  t.setTypeface(null, Typeface.BOLD);
+
+                  TextView s = text(
+                          subtitle,
+                          12,
+                          Color.LTGRAY
+                  );
+
+                  s.setMaxLines(2);
+
+                  card.addView(
+                          t,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(30)
+                          )
+                  );
+
+                  card.addView(
+                          s,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(38)
+                          )
+                  );
+
+                  LinearLayout.LayoutParams p =
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(86)
+                          );
+
+                  p.setMargins(
+                          0,
+                          dp(6),
+                          0,
+                          dp(6)
+                  );
+
+                  parent.addView(card,p);
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/rcinstaedit/app/PhotoEditorActivity.java <<'EOF'
+          package com.rcinstaedit.app;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.Looper;
+
+          import android.content.ContentValues;
+          import android.content.Intent;
+          import android.graphics.Bitmap;
+          import android.graphics.BitmapFactory;
+          import android.graphics.Color;
+          import android.graphics.Matrix;
+          import android.net.Uri;
+          import android.os.Environment;
+          import android.provider.MediaStore;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.view.Window;
+          import android.widget.Button;
+          import android.widget.HorizontalScrollView;
+          import android.widget.ImageView;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.SeekBar;
+          import android.widget.TextView;
+          import android.widget.Toast;
+
+          import java.io.InputStream;
+          import java.io.OutputStream;
+          import java.util.ArrayDeque;
+          import java.util.Locale;
+          import java.util.concurrent.ExecutorService;
+          import java.util.concurrent.Executors;
+          import java.util.concurrent.Future;
+
+          public class PhotoEditorActivity extends Activity {
+
+              private ImageView preview;
+
+              private Bitmap baseBitmap;
+              private Bitmap renderedBitmap;
+
+              private Uri photoUri;
+
+              private final Handler handler =
+                      new Handler(Looper.getMainLooper());
+
+              private final ExecutorService executor =
+                      Executors.newSingleThreadExecutor();
+
+              private Future<?> renderTask;
+
+              private int renderId = 0;
+
+              private final float[] adjust =
+                      new float[17];
+
+              private final SeekBar[] bars =
+                      new SeekBar[17];
+
+              private final TextView[] labels =
+                      new TextView[17];
+
+              private final String[] names = {
+                      "Brightness",
+                      "Exposure",
+                      "Brilliance",
+                      "Contrast",
+                      "Highlights",
+                      "Shadows",
+                      "Black Point",
+                      "Saturation",
+                      "Vibrance",
+                      "Warmth / Temperature",
+                      "Tint",
+                      "Hue",
+                      "Sharpness",
+                      "Definition",
+                      "Noise Reduction",
+                      "Fade",
+                      "Vignette"
+              };
+
+              private int filter = 0;
+              private int filterIntensity = 100;
+
+              private final ArrayDeque<Snapshot> undo =
+                      new ArrayDeque<>();
+
+              private final ArrayDeque<Snapshot> redo =
+                      new ArrayDeque<>();
+
+              private Snapshot dragSnapshot;
+
+              private static final int PICK_IMAGE = 5001;
+
+              private int dp(float value) {
+                  return (int)(value *
+                          getResources().getDisplayMetrics().density + 0.5f);
+              }
+
+              private TextView text(
+                      String value,
+                      float size,
+                      int color
+              ) {
+                  TextView t = new TextView(this);
+                  t.setText(value);
+                  t.setTextSize(size);
+                  t.setTextColor(color);
+                  t.setGravity(Gravity.CENTER_VERTICAL);
+                  t.setIncludeFontPadding(true);
+                  return t;
+              }
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  Window window = getWindow();
+                  window.setStatusBarColor(Color.rgb(8,8,8));
+                  window.setNavigationBarColor(Color.rgb(8,8,8));
+
+                  buildUI();
+              }
+
+              private void buildUI() {
+
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setBackgroundColor(Color.rgb(8,8,8));
+
+                  TextView title = text(
+                          "PHOTO EDITOR",
+                          20,
+                          Color.WHITE
+                  );
+
+                  title.setTypeface(
+                          null,
+                          android.graphics.Typeface.BOLD
+                  );
+
+                  title.setPadding(
+                          dp(16),
+                          dp(3),
+                          dp(16),
+                          dp(3)
+                  );
+
+                  root.addView(
+                          title,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(52)
+                          )
+                  );
+
+                  /*
+                   * FIXED PREVIEW.
+                   * ScrollView is below this area.
+                   */
+                  LinearLayout previewArea =
+                          new LinearLayout(this);
+
+                  previewArea.setGravity(Gravity.CENTER);
+
+                  previewArea.setBackgroundColor(
+                          Color.rgb(14,14,16)
+                  );
+
+                  preview = new ImageView(this);
+
+                  preview.setScaleType(
+                          ImageView.ScaleType.FIT_CENTER
+                  );
+
+                  preview.setBackgroundColor(
+                          Color.rgb(14,14,16)
+                  );
+
+                  previewArea.addView(
+                          preview,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  -1
+                          )
+                  );
+
+                  root.addView(
+                          previewArea,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(300)
+                          )
+                  );
+
+                  LinearLayout top = new LinearLayout(this);
+
+                  top.setPadding(
+                          dp(8),
+                          dp(5),
+                          dp(8),
+                          dp(5)
+                  );
+
+                  addButton(
+                          top,
+                          "CHOOSE",
+                          v -> choosePhoto()
+                  );
+
+                  addButton(
+                          top,
+                          "BEFORE",
+                          v -> showBefore()
+                  );
+
+                  addButton(
+                          top,
+                          "SAVE",
+                          v -> savePhoto()
+                  );
+
+                  root.addView(
+                          top,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(55)
+                          )
+                  );
+
+                  ScrollView scroll =
+                          new ScrollView(this);
+
+                  scroll.setFillViewport(true);
+
+                  LinearLayout panel =
+                          new LinearLayout(this);
+
+                  panel.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  panel.setPadding(
+                          dp(15),
+                          dp(4),
+                          dp(15),
+                          dp(30)
+                  );
+
+                  addSection(panel,"LIGHT");
+
+                  for(int i=0;i<=6;i++) {
+                      addSlider(panel,i);
+                  }
+
+                  addSection(panel,"COLOR");
+
+                  for(int i=7;i<=11;i++) {
+                      addSlider(panel,i);
+                  }
+
+                  addSection(panel,"DETAIL");
+
+                  for(int i=12;i<=14;i++) {
+                      addSlider(panel,i);
+                  }
+
+                  addSection(panel,"STYLE");
+
+                  for(int i=15;i<=16;i++) {
+                      addSlider(panel,i);
+                  }
+
+                  addSection(panel,"FILTERS");
+
+                  addFilters(panel);
+
+                  addSection(panel,"TOOLS");
+
+                  LinearLayout tools =
+                          new LinearLayout(this);
+
+                  addButton(
+                          tools,
+                          "ROTATE",
+                          v -> rotate()
+                  );
+
+                  addButton(
+                          tools,
+                          "FLIP H",
+                          v -> flip(true)
+                  );
+
+                  addButton(
+                          tools,
+                          "FLIP V",
+                          v -> flip(false)
+                  );
+
+                  addButton(
+                          tools,
+                          "CROP",
+                          v -> crop()
+                  );
+
+                  panel.addView(
+                          tools,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(58)
+                          )
+                  );
+
+                  LinearLayout actions =
+                          new LinearLayout(this);
+
+                  addButton(
+                          actions,
+                          "RESET",
+                          v -> reset()
+                  );
+
+                  addButton(
+                          actions,
+                          "UNDO",
+                          v -> undo()
+                  );
+
+                  addButton(
+                          actions,
+                          "REDO",
+                          v -> redo()
+                  );
+
+                  panel.addView(
+                          actions,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(58)
+                          )
+                  );
+
+                  scroll.addView(panel);
+
+                  root.addView(
+                          scroll,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  0,
+                                  1
+                          )
+                  );
+
+                  setContentView(root);
+              }
+
+              private void addSection(
+                      LinearLayout parent,
+                      String title
+              ) {
+
+                  TextView section =
+                          text(
+                                  title,
+                                  14,
+                                  Color.rgb(175,150,255)
+                          );
+
+                  section.setTypeface(
+                          null,
+                          android.graphics.Typeface.BOLD
+                  );
+
+                  section.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  section.setPadding(
+                          0,
+                          dp(4),
+                          0,
+                          dp(4)
+                  );
+
+                  LinearLayout.LayoutParams p =
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(50)
+                          );
+
+                  p.setMargins(
+                          0,
+                          dp(12),
+                          0,
+                          dp(2)
+                  );
+
+                  parent.addView(section,p);
+              }
+
+              private void addSlider(
+                      LinearLayout parent,
+                      int index
+              ) {
+
+                  LinearLayout box =
+                          new LinearLayout(this);
+
+                  box.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  TextView label =
+                          text(
+                                  names[index] + "    0",
+                                  13,
+                                  Color.WHITE
+                          );
+
+                  SeekBar seek = new SeekBar(this);
+
+                  seek.setMax(200);
+                  seek.setProgress(100);
+
+                  labels[index] = label;
+                  bars[index] = seek;
+
+                  box.addView(
+                          label,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(29)
+                          )
+                  );
+
+                  box.addView(
+                          seek,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(42)
+                          )
+                  );
+
+                  parent.addView(
+                          box,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(73)
+                          )
+                  );
+
+                  seek.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                      @Override
+                      public void onStartTrackingTouch(
+                              SeekBar s
+                      ) {
+                          dragSnapshot =
+                                  makeSnapshot();
+                      }
+
+                      @Override
+                      public void onProgressChanged(
+                              SeekBar s,
+                              int progress,
+                              boolean fromUser
+                      ) {
+
+                          if(!fromUser) {
+                              return;
+                          }
+
+                          adjust[index] =
+                                  progress - 100;
+
+                          label.setText(
+                                  names[index] +
+                                  "    " +
+                                  String.format(
+                                          Locale.US,
+                                          "%.0f",
+                                          adjust[index]
+                                  )
+                          );
+
+                          schedulePreview();
+                      }
+
+                      @Override
+                      public void onStopTrackingTouch(
+                              SeekBar s
+                      ) {
+
+                          if(dragSnapshot != null) {
+                              undo.push(dragSnapshot);
+                              redo.clear();
+                              dragSnapshot = null;
+                          }
+
+                          schedulePreview();
+                      }
+                  });
+              }
+
+              private void addFilters(
+                      LinearLayout parent
+              ) {
+
+                  String[] filterNames = {
+                          "Original",
+                          "Vivid",
+                          "Vivid Warm",
+                          "Vivid Cool",
+                          "Dramatic",
+                          "Dramatic Warm",
+                          "Dramatic Cool",
+                          "Mono",
+                          "Silvertone",
+                          "Noir",
+                          "Warm",
+                          "Cool",
+                          "Fade"
+                  };
+
+                  HorizontalScrollView horizontal =
+                          new HorizontalScrollView(this);
+
+                  LinearLayout row =
+                          new LinearLayout(this);
+
+                  for(int i=0;i<filterNames.length;i++) {
+
+                      final int id = i;
+
+                      Button b = new Button(this);
+
+                      b.setText(filterNames[i]);
+                      b.setTextSize(10);
+                      b.setTextColor(Color.WHITE);
+
+                      b.setOnClickListener(
+                              v -> {
+
+                                  undo.push(
+                                          makeSnapshot()
+                                  );
+
+                                  redo.clear();
+
+                                  filter = id;
+
+                                  schedulePreview();
+                              }
+                      );
+
+                      row.addView(
+                              b,
+                              new LinearLayout.LayoutParams(
+                                      dp(105),
+                                      dp(50)
+                              )
+                      );
+                  }
+
+                  horizontal.addView(row);
+
+                  parent.addView(
+                          horizontal,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(62)
+                          )
+                  );
+
+                  TextView intensityLabel =
+                          text(
+                                  "Filter Intensity    100",
+                                  13,
+                                  Color.WHITE
+                          );
+
+                  SeekBar intensity =
+                          new SeekBar(this);
+
+                  intensity.setMax(100);
+                  intensity.setProgress(100);
+
+                  intensity.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                      @Override
+                      public void onStartTrackingTouch(
+                              SeekBar s
+                      ) {}
+
+                      @Override
+                      public void onProgressChanged(
+                              SeekBar s,
+                              int value,
+                              boolean fromUser
+                      ) {
+
+                          if(fromUser) {
+
+                              filterIntensity =
+                                      value;
+
+                              intensityLabel.setText(
+                                      "Filter Intensity    "
+                                      + value
+                              );
+
+                              schedulePreview();
+                          }
+                      }
+
+                      @Override
+                      public void onStopTrackingTouch(
+                              SeekBar s
+                      ) {}
+                  });
+
+                  parent.addView(
+                          intensityLabel,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(29)
+                          )
+                  );
+
+                  parent.addView(
+                          intensity,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(42)
+                          )
+                  );
+              }
+
+              private void addButton(
+                      LinearLayout parent,
+                      String value,
+                      View.OnClickListener listener
+              ) {
+
+                  Button b = new Button(this);
+
+                  b.setText(value);
+                  b.setTextSize(10);
+                  b.setTextColor(Color.WHITE);
+                  b.setOnClickListener(listener);
+
+                  LinearLayout.LayoutParams p =
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(50),
+                                  1
+                          );
+
+                  p.setMargins(
+                          dp(2),
+                          0,
+                          dp(2),
+                          0
+                  );
+
+                  parent.addView(b,p);
+              }
+
+              private void choosePhoto() {
+
+                  Intent intent =
+                          new Intent(
+                                  Intent.ACTION_OPEN_DOCUMENT
+                          );
+
+                  intent.setType("image/*");
+
+                  intent.addCategory(
+                          Intent.CATEGORY_OPENABLE
+                  );
+
+                  startActivityForResult(
+                          intent,
+                          PICK_IMAGE
+                  );
+              }
+
+              @Override
+              protected void onActivityResult(
+                      int requestCode,
+                      int resultCode,
+                      Intent data
+              ) {
+
+                  super.onActivityResult(
+                          requestCode,
+                          resultCode,
+                          data
+                  );
+
+                  if(requestCode == PICK_IMAGE &&
+                          resultCode == RESULT_OK &&
+                          data != null &&
+                          data.getData() != null) {
+
+                      photoUri = data.getData();
+
+                      try {
+
+                          Bitmap bitmap =
+                                  decodeForEditor(
+                                          photoUri
+                                  );
+
+                          if(bitmap == null) {
+                              throw new Exception();
+                          }
+
+                          if(baseBitmap != null &&
+                                  !baseBitmap.isRecycled()) {
+                              baseBitmap.recycle();
+                          }
+
+                          baseBitmap = bitmap;
+
+                          undo.clear();
+                          redo.clear();
+
+                          for(int i=0;i<17;i++) {
+                              adjust[i] = 0;
+                          }
+
+                          filter = 0;
+                          filterIntensity = 100;
+
+                          for(int i=0;i<17;i++) {
+
+                              if(bars[i] != null) {
+                                  bars[i].setProgress(100);
+                              }
+                          }
+
+                          preview.setImageBitmap(
+                                  baseBitmap
+                          );
+
+                          schedulePreview();
+
+                      } catch(Exception e) {
+
+                          Toast.makeText(
+                                  this,
+                                  "Photo load nahi hui",
+                                  Toast.LENGTH_SHORT
+                          ).show();
+                      }
+                  }
+              }
+
+              /*
+               * Editor working bitmap.
+               * Maximum dimension 900px for fast preview.
+               */
+              private Bitmap decodeForEditor(
+                      Uri uri
+              ) throws Exception {
+
+                  BitmapFactory.Options bounds =
+                          new BitmapFactory.Options();
+
+                  bounds.inJustDecodeBounds = true;
+
+                  InputStream input =
+                          getContentResolver()
+                                  .openInputStream(uri);
+
+                  BitmapFactory.decodeStream(
+                          input,
+                          null,
+                          bounds
+                  );
+
+                  input.close();
+
+                  int sample = 1;
+
+                  int largest =
+                          Math.max(
+                                  bounds.outWidth,
+                                  bounds.outHeight
+                          );
+
+                  while(largest / sample > 900) {
+                      sample *= 2;
+                  }
+
+                  BitmapFactory.Options options =
+                          new BitmapFactory.Options();
+
+                  options.inSampleSize = sample;
+
+                  options.inPreferredConfig =
+                          Bitmap.Config.ARGB_8888;
+
+                  InputStream second =
+                          getContentResolver()
+                                  .openInputStream(uri);
+
+                  Bitmap result =
+                          BitmapFactory.decodeStream(
+                                  second,
+                                  null,
+                                  options
+                          );
+
+                  second.close();
+
+                  return result;
+              }
+
+              private void schedulePreview() {
+
+                  handler.removeCallbacks(
+                          previewRunnable
+                  );
+
+                  handler.postDelayed(
+                          previewRunnable,
+                          45
+                  );
+              }
+
+              private final Runnable previewRunnable =
+                      () -> renderPreview();
+
+              private void renderPreview() {
+
+                  if(baseBitmap == null) {
+                      return;
+                  }
+
+                  final Bitmap source =
+                          baseBitmap;
+
+                  final float[] values =
+                          adjust.clone();
+
+                  final int selectedFilter =
+                          filter;
+
+                  final int selectedIntensity =
+                          filterIntensity;
+
+                  final int id = ++renderId;
+
+                  if(renderTask != null) {
+                      renderTask.cancel(true);
+                  }
+
+                  renderTask =
+                          executor.submit(() -> {
+
+                      Bitmap result =
+                              processBitmap(
+                                      source,
+                                      values,
+                                      selectedFilter,
+                                      selectedIntensity
+                              );
+
+                      if(result == null) {
+                          return;
+                      }
+
+                      runOnUiThread(() -> {
+
+                          if(id != renderId) {
+
+                              if(!result.isRecycled()) {
+                                  result.recycle();
+                              }
+
+                              return;
+                          }
+
+                          Bitmap old =
+                                  renderedBitmap;
+
+                          renderedBitmap =
+                                  result;
+
+                          preview.setImageBitmap(
+                                  result
+                          );
+
+                          if(old != null &&
+                                  old != baseBitmap &&
+                                  old != result &&
+                                  !old.isRecycled()) {
+
+                              old.recycle();
+                          }
+                      });
+                  });
+              }
+
+              /*
+               * Real pixel processing.
+               * All 17 controls affect actual pixels.
+               */
+              private Bitmap processBitmap(
+                      Bitmap source,
+                      float[] a,
+                      int filterId,
+                      int filterAmount
+              ) {
+
+                  int width =
+                          source.getWidth();
+
+                  int height =
+                          source.getHeight();
+
+                  int[] pixels =
+                          new int[width * height];
+
+                  source.getPixels(
+                          pixels,
+                          0,
+                          width,
+                          0,
+                          0,
+                          width,
+                          height
+                  );
+
+                  int[] original =
+                          pixels.clone();
+
+                  float[] hsv =
+                          new float[3];
+
+                  float noise =
+                          Math.max(0,a[14]) / 100f;
+
+                  float sharp =
+                          Math.max(0,a[12]) / 100f;
+
+                  float definition =
+                          a[13] / 100f;
+
+                  for(int y=0;y<height;y++) {
+
+                      if(Thread.currentThread().isInterrupted()) {
+                          return null;
+                      }
+
+                      for(int x=0;x<width;x++) {
+
+                          int index =
+                                  y * width + x;
+
+                          int sourceColor =
+                                  original[index];
+
+                          float r =
+                                  Color.red(sourceColor);
+
+                          float g =
+                                  Color.green(sourceColor);
+
+                          float b =
+                                  Color.blue(sourceColor);
+
+                          /*
+                           * Noise Reduction
+                           */
+                          if(noise > 0) {
+
+                              float nr = r;
+                              float ng = g;
+                              float nb = b;
+
+                              int count = 1;
+
+                              if(x > 0) {
+
+                                  int c =
+                                          original[index - 1];
+
+                                  nr += Color.red(c);
+                                  ng += Color.green(c);
+                                  nb += Color.blue(c);
+
+                                  count++;
+                              }
+
+                              if(x < width - 1) {
+
+                                  int c =
+                                          original[index + 1];
+
+                                  nr += Color.red(c);
+                                  ng += Color.green(c);
+                                  nb += Color.blue(c);
+
+                                  count++;
+                              }
+
+                              if(y > 0) {
+
+                                  int c =
+                                          original[index - width];
+
+                                  nr += Color.red(c);
+                                  ng += Color.green(c);
+                                  nb += Color.blue(c);
+
+                                  count++;
+                              }
+
+                              if(y < height - 1) {
+
+                                  int c =
+                                          original[index + width];
+
+                                  nr += Color.red(c);
+                                  ng += Color.green(c);
+                                  nb += Color.blue(c);
+
+                                  count++;
+                              }
+
+                              nr /= count;
+                              ng /= count;
+                              nb /= count;
+
+                              r =
+                                      r * (1-noise)
+                                      + nr * noise;
+
+                              g =
+                                      g * (1-noise)
+                                      + ng * noise;
+
+                              b =
+                                      b * (1-noise)
+                                      + nb * noise;
+                          }
+
+                          /*
+                           * Sharpness
+                           */
+                          if(sharp > 0) {
+
+                              float nr = 0;
+                              float ng = 0;
+                              float nb = 0;
+                              int count = 0;
+
+                              if(x > 0) {
+
+                                  int c =
+                                          original[index-1];
+
+                                  nr += Color.red(c);
+                                  ng += Color.green(c);
+                                  nb += Color.blue(c);
+
+                                  count++;
+                              }
+
+                              if(x < width-1) {
+
+                                  int c =
+                                          original[index+1];
+
+                                  nr += Color.red(c);
+                                  ng += Color.green(c);
+                                  nb += Color.blue(c);
+
+                                  count++;
+                              }
+
+                              if(y > 0) {
+
+                                  int c =
+                                          original[index-width];
+
+                                  nr += Color.red(c);
+                                  ng += Color.green(c);
+                                  nb += Color.blue(c);
+
+                                  count++;
+                              }
+
+                              if(y < height-1) {
+
+                                  int c =
+                                          original[index+width];
+
+                                  nr += Color.red(c);
+                                  ng += Color.green(c);
+                                  nb += Color.blue(c);
+
+                                  count++;
+                              }
+
+                              if(count > 0) {
+
+                                  nr /= count;
+                                  ng /= count;
+                                  nb /= count;
+
+                                  float amount =
+                                          sharp * 1.35f;
+
+                                  r +=
+                                          (r-nr) * amount;
+
+                                  g +=
+                                          (g-ng) * amount;
+
+                                  b +=
+                                          (b-nb) * amount;
+                              }
+                          }
+
+                          float luminance =
+                                  (
+                                          0.2126f*r +
+                                          0.7152f*g +
+                                          0.0722f*b
+                                  ) / 255f;
+
+                          /*
+                           * Definition
+                           */
+                          if(definition != 0) {
+
+                              float local =
+                                      (r+g+b)/3f;
+
+                              float difference =
+                                      luminance*255f -
+                                      local;
+
+                              float amount =
+                                      definition * 0.65f;
+
+                              r +=
+                                      difference * amount;
+
+                              g +=
+                                      difference * amount;
+
+                              b +=
+                                      difference * amount;
+                          }
+
+                          /*
+                           * Brightness
+                           */
+                          float brightness =
+                                  a[0]/100f;
+
+                          r += brightness*65f;
+                          g += brightness*65f;
+                          b += brightness*65f;
+
+                          /*
+                           * Exposure
+                           */
+                          float exposure =
+                                  (float)Math.pow(
+                                          2.0,
+                                          a[1]/100.0
+                                  );
+
+                          r *= exposure;
+                          g *= exposure;
+                          b *= exposure;
+
+                          /*
+                           * Brilliance
+                           */
+                          float brilliance =
+                                  a[2]/100f;
+
+                          float midtone =
+                                  1f -
+                                  Math.abs(
+                                          luminance-0.5f
+                                  ) * 2f;
+
+                          r +=
+                                  (128-r) *
+                                  brilliance *
+                                  midtone *
+                                  0.45f;
+
+                          g +=
+                                  (128-g) *
+                                  brilliance *
+                                  midtone *
+                                  0.45f;
+
+                          b +=
+                                  (128-b) *
+                                  brilliance *
+                                  midtone *
+                                  0.45f;
+
+                          /*
+                           * Contrast
+                           */
+                          float contrast =
+                                  a[3]/100f;
+
+                          float contrastFactor =
+                                  1f +
+                                  contrast*1.55f;
+
+                          r =
+                                  (r-128) *
+                                  contrastFactor + 128;
+
+                          g =
+                                  (g-128) *
+                                  contrastFactor + 128;
+
+                          b =
+                                  (b-128) *
+                                  contrastFactor + 128;
+
+                          /*
+                           * Highlights
+                           */
+                          float highlights =
+                                  a[4]/100f;
+
+                          if(luminance > 0.48f) {
+
+                              float weight =
+                                      (luminance-0.48f)
+                                      /0.52f;
+
+                              if(highlights > 0) {
+
+                                  r +=
+                                          (255-r) *
+                                          highlights *
+                                          weight *
+                                          0.40f;
+
+                                  g +=
+                                          (255-g) *
+                                          highlights *
+                                          weight *
+                                          0.40f;
+
+                                  b +=
+                                          (255-b) *
+                                          highlights *
+                                          weight *
+                                          0.40f;
+
+                              } else {
+
+                                  float factor =
+                                          1f +
+                                          highlights *
+                                          weight *
+                                          0.70f;
+
+                                  r *= factor;
+                                  g *= factor;
+                                  b *= factor;
+                              }
+                          }
+
+                          /*
+                           * Shadows
+                           */
+                          float shadows =
+                                  a[5]/100f;
+
+                          if(luminance < 0.52f) {
+
+                              float weight =
+                                      1f -
+                                      luminance/0.52f;
+
+                              if(shadows > 0) {
+
+                                  r +=
+                                          (255-r) *
+                                          shadows *
+                                          weight *
+                                          0.48f;
+
+                                  g +=
+                                          (255-g) *
+                                          shadows *
+                                          weight *
+                                          0.48f;
+
+                                  b +=
+                                          (255-b) *
+                                          shadows *
+                                          weight *
+                                          0.48f;
+
+                              } else {
+
+                                  float factor =
+                                          1f +
+                                          shadows *
+                                          weight *
+                                          0.65f;
+
+                                  r *= factor;
+                                  g *= factor;
+                                  b *= factor;
+                              }
+                          }
+
+                          /*
+                           * Black Point
+                           */
+                          float blackPoint =
+                                  a[6]/100f;
+
+                          if(luminance < 0.40f) {
+
+                              float weight =
+                                      1f -
+                                      luminance/0.40f;
+
+                              r -=
+                                      blackPoint *
+                                      60f *
+                                      weight;
+
+                              g -=
+                                      blackPoint *
+                                      60f *
+                                      weight;
+
+                              b -=
+                                      blackPoint *
+                                      60f *
+                                      weight;
+                          }
+
+                          r = clamp(r);
+                          g = clamp(g);
+                          b = clamp(b);
+
+                          /*
+                           * Saturation
+                           */
+                          Color.RGBToHSV(
+                                  clampInt(r),
+                                  clampInt(g),
+                                  clampInt(b),
+                                  hsv
+                          );
+
+                          hsv[1] *=
+                                  1f +
+                                  a[7]/100f;
+
+                          /*
+                           * Vibrance
+                           */
+                          float vibrance =
+                                  a[8]/100f;
+
+                          hsv[1] +=
+                                  vibrance *
+                                  (1f-hsv[1]) *
+                                  0.95f;
+
+                          hsv[1] =
+                                  clamp01(hsv[1]);
+
+                          /*
+                           * Hue
+                           */
+                          hsv[0] +=
+                                  a[11]/100f * 180f;
+
+                          while(hsv[0] < 0) {
+                              hsv[0] += 360;
+                          }
+
+                          while(hsv[0] >= 360) {
+                              hsv[0] -= 360;
+                          }
+
+                          int hsvColor =
+                                  Color.HSVToColor(hsv);
+
+                          r = Color.red(hsvColor);
+                          g = Color.green(hsvColor);
+                          b = Color.blue(hsvColor);
+
+                          /*
+                           * Warmth
+                           */
+                          float warmth =
+                                  a[9]/100f;
+
+                          r += warmth*42f;
+                          g += warmth*9f;
+                          b -= warmth*42f;
+
+                          /*
+                           * Tint
+                           */
+                          float tint =
+                                  a[10]/100f;
+
+                          r += tint*24f;
+                          g -= tint*34f;
+                          b += tint*24f;
+
+                          /*
+                           * Fade
+                           */
+                          float fade =
+                                  Math.max(0,a[15])/100f;
+
+                          if(fade > 0) {
+
+                              float amount =
+                                      fade*0.42f;
+
+                              r =
+                                      r*(1-amount)
+                                      +128*amount;
+
+                              g =
+                                      g*(1-amount)
+                                      +128*amount;
+
+                              b =
+                                      b*(1-amount)
+                                      +128*amount;
+                          }
+
+                          /*
+                           * FILTERS
+                           */
+                          float fr = r;
+                          float fg = g;
+                          float fb = b;
+
+                          float[] filterHSV =
+                                  new float[3];
+
+                          int rgb;
+
+                          switch(filterId) {
+
+                              case 1:
+
+                                  Color.RGBToHSV(
+                                          clampInt(r),
+                                          clampInt(g),
+                                          clampInt(b),
+                                          filterHSV
+                                  );
+
+                                  filterHSV[1] =
+                                          clamp01(
+                                                  filterHSV[1]+0.24f
+                                          );
+
+                                  rgb =
+                                          Color.HSVToColor(
+                                                  filterHSV
+                                          );
+
+                                  fr =
+                                          Color.red(rgb)*1.08f;
+
+                                  fg =
+                                          Color.green(rgb)*1.08f;
+
+                                  fb =
+                                          Color.blue(rgb)*1.08f;
+
+                                  break;
+
+                              case 2:
+
+                                  Color.RGBToHSV(
+                                          clampInt(r),
+                                          clampInt(g),
+                                          clampInt(b),
+                                          filterHSV
+                                  );
+
+                                  filterHSV[1] =
+                                          clamp01(
+                                                  filterHSV[1]+0.26f
+                                          );
+
+                                  rgb =
+                                          Color.HSVToColor(
+                                                  filterHSV
+                                          );
+
+                                  fr =
+                                          Color.red(rgb)+18;
+
+                                  fg =
+                                          Color.green(rgb)+7;
+
+                                  fb =
+                                          Color.blue(rgb)-18;
+
+                                  break;
+
+                              case 3:
+
+                                  Color.RGBToHSV(
+                                          clampInt(r),
+                                          clampInt(g),
+                                          clampInt(b),
+                                          filterHSV
+                                  );
+
+                                  filterHSV[1] =
+                                          clamp01(
+                                                  filterHSV[1]+0.26f
+                                          );
+
+                                  rgb =
+                                          Color.HSVToColor(
+                                                  filterHSV
+                                          );
+
+                                  fr =
+                                          Color.red(rgb)-15;
+
+                                  fg =
+                                          Color.green(rgb)+4;
+
+                                  fb =
+                                          Color.blue(rgb)+20;
+
+                                  break;
+
+                              case 4:
+
+                                  fr =
+                                          (r-128)*1.38f+128;
+
+                                  fg =
+                                          (g-128)*1.38f+128;
+
+                                  fb =
+                                          (b-128)*1.38f+128;
+
+                                  break;
+
+                              case 5:
+
+                                  fr =
+                                          (r-128)*1.40f+140;
+
+                                  fg =
+                                          (g-128)*1.38f+130;
+
+                                  fb =
+                                          (b-128)*1.30f+110;
+
+                                  break;
+
+                              case 6:
+
+                                  fr =
+                                          (r-128)*1.38f+110;
+
+                                  fg =
+                                          (g-128)*1.38f+128;
+
+                                  fb =
+                                          (b-128)*1.42f+145;
+
+                                  break;
+
+                              case 7:
+
+                                  float mono =
+                                          0.299f*r +
+                                          0.587f*g +
+                                          0.114f*b;
+
+                                  fr = mono;
+                                  fg = mono;
+                                  fb = mono;
+
+                                  break;
+
+                              case 8:
+
+                                  float silver =
+                                          0.299f*r +
+                                          0.587f*g +
+                                          0.114f*b;
+
+                                  silver =
+                                          (silver-128)*1.20f
+                                          +128;
+
+                                  fr = silver+5;
+                                  fg = silver+5;
+                                  fb = silver+9;
+
+                                  break;
+
+                              case 9:
+
+                                  float noir =
+                                          0.299f*r +
+                                          0.587f*g +
+                                          0.114f*b;
+
+                                  noir =
+                                          (noir-128)*1.72f
+                                          +116;
+
+                                  fr = noir;
+                                  fg = noir;
+                                  fb = noir;
+
+                                  break;
+
+                              case 10:
+
+                                  fr = r+24;
+                                  fg = g+7;
+                                  fb = b-24;
+
+                                  break;
+
+                              case 11:
+
+                                  fr = r-20;
+                                  fg = g+3;
+                                  fb = b+26;
+
+                                  break;
+
+                              case 12:
+
+                                  fr =
+                                          r*0.70f +
+                                          128*0.30f;
+
+                                  fg =
+                                          g*0.70f +
+                                          128*0.30f;
+
+                                  fb =
+                                          b*0.70f +
+                                          128*0.30f;
+
+                                  break;
+
+                              default:
+                                  break;
+                          }
+
+                          float filterMix =
+                                  filterAmount/100f;
+
+                          r =
+                                  r*(1-filterMix)
+                                  +fr*filterMix;
+
+                          g =
+                                  g*(1-filterMix)
+                                  +fg*filterMix;
+
+                          b =
+                                  b*(1-filterMix)
+                                  +fb*filterMix;
+
+                          /*
+                           * Vignette
+                           */
+                          float vignette =
+                                  a[16]/100f;
+
+                          if(vignette != 0) {
+
+                              float nx =
+                                      (x-width/2f)
+                                      /(width/2f);
+
+                              float ny =
+                                      (y-height/2f)
+                                      /(height/2f);
+
+                              float distance =
+                                      (float)Math.sqrt(
+                                              nx*nx + ny*ny
+                                      );
+
+                              float edge =
+                                      clamp01(
+                                              (distance-0.20f)
+                                              /0.80f
+                                      );
+
+                              float amount =
+                                      vignette *
+                                      0.82f *
+                                      edge;
+
+                              if(amount > 0) {
+
+                                  r *= 1-amount;
+                                  g *= 1-amount;
+                                  b *= 1-amount;
+
+                              } else {
+
+                                  float lift =
+                                          -amount;
+
+                                  r +=
+                                          (255-r) *
+                                          lift *
+                                          0.22f;
+
+                                  g +=
+                                          (255-g) *
+                                          lift *
+                                          0.22f;
+
+                                  b +=
+                                          (255-b) *
+                                          lift *
+                                          0.22f;
+                              }
+                          }
+
+                          pixels[index] =
+                                  Color.rgb(
+                                          clampInt(r),
+                                          clampInt(g),
+                                          clampInt(b)
+                                  );
+                      }
+                  }
+
+                  Bitmap result =
+                          Bitmap.createBitmap(
+                                  width,
+                                  height,
+                                  Bitmap.Config.ARGB_8888
+                          );
+
+                  result.setPixels(
+                          pixels,
+                          0,
+                          width,
+                          0,
+                          0,
+                          width,
+                          height
+                  );
+
+                  return result;
+              }
+
+              private float clamp(float value) {
+                  return Math.max(
+                          0,
+                          Math.min(255,value)
+                  );
+              }
+
+              private float clamp01(float value) {
+                  return Math.max(
+                          0,
+                          Math.min(1,value)
+                  );
+              }
+
+              private int clampInt(float value) {
+                  return Math.max(
+                          0,
+                          Math.min(
+                                  255,
+                                  Math.round(value)
+                          )
+                  );
+              }
+
+              private Snapshot makeSnapshot() {
+
+                  Snapshot snapshot =
+                          new Snapshot();
+
+                  snapshot.values =
+                          adjust.clone();
+
+                  snapshot.filter =
+                          filter;
+
+                  snapshot.intensity =
+                          filterIntensity;
+
+                  return snapshot;
+              }
+
+              private void restore(
+                      Snapshot snapshot
+              ) {
+
+                  if(snapshot == null) {
+                      return;
+                  }
+
+                  System.arraycopy(
+                          snapshot.values,
+                          0,
+                          adjust,
+                          0,
+                          17
+                  );
+
+                  filter =
+                          snapshot.filter;
+
+                  filterIntensity =
+                          snapshot.intensity;
+
+                  for(int i=0;i<17;i++) {
+
+                      if(bars[i] != null) {
+
+                          bars[i].setProgress(
+                                  (int)adjust[i] + 100
+                          );
+
+                          labels[i].setText(
+                                  names[i] +
+                                  "    " +
+                                  String.format(
+                                          Locale.US,
+                                          "%.0f",
+                                          adjust[i]
+                                  )
+                          );
+                      }
+                  }
+
+                  schedulePreview();
+              }
+
+              private void undo() {
+
+                  if(undo.isEmpty()) {
+                      return;
+                  }
+
+                  redo.push(
+                          makeSnapshot()
+                  );
+
+                  restore(
+                          undo.pop()
+                  );
+              }
+
+              private void redo() {
+
+                  if(redo.isEmpty()) {
+                      return;
+                  }
+
+                  undo.push(
+                          makeSnapshot()
+                  );
+
+                  restore(
+                          redo.pop()
+                  );
+              }
+
+              private void reset() {
+
+                  undo.push(
+                          makeSnapshot()
+                  );
+
+                  redo.clear();
+
+                  for(int i=0;i<17;i++) {
+                      adjust[i] = 0;
+                  }
+
+                  filter = 0;
+                  filterIntensity = 100;
+
+                  for(int i=0;i<17;i++) {
+
+                      if(bars[i] != null) {
+                          bars[i].setProgress(100);
+                      }
+                  }
+
+                  schedulePreview();
+              }
+
+              private void rotate() {
+
+                  if(baseBitmap == null) {
+                      return;
+                  }
+
+                  undo.push(
+                          makeSnapshot()
+                  );
+
+                  redo.clear();
+
+                  Matrix matrix =
+                          new Matrix();
+
+                  matrix.postRotate(90);
+
+                  Bitmap old =
+                          baseBitmap;
+
+                  baseBitmap =
+                          Bitmap.createBitmap(
+                                  old,
+                                  0,
+                                  0,
+                                  old.getWidth(),
+                                  old.getHeight(),
+                                  matrix,
+                                  true
+                          );
+
+                  if(old != baseBitmap &&
+                          !old.isRecycled()) {
+                      old.recycle();
+                  }
+
+                  schedulePreview();
+              }
+
+              private void flip(
+                      boolean horizontal
+              ) {
+
+                  if(baseBitmap == null) {
+                      return;
+                  }
+
+                  undo.push(
+                          makeSnapshot()
+                  );
+
+                  redo.clear();
+
+                  Matrix matrix =
+                          new Matrix();
+
+                  if(horizontal) {
+                      matrix.setScale(-1,1);
+                  } else {
+                      matrix.setScale(1,-1);
+                  }
+
+                  Bitmap old =
+                          baseBitmap;
+
+                  baseBitmap =
+                          Bitmap.createBitmap(
+                                  old,
+                                  0,
+                                  0,
+                                  old.getWidth(),
+                                  old.getHeight(),
+                                  matrix,
+                                  true
+                          );
+
+                  if(old != baseBitmap &&
+                          !old.isRecycled()) {
+                      old.recycle();
+                  }
+
+                  schedulePreview();
+              }
+
+              private void crop() {
+
+                  if(baseBitmap == null) {
+                      return;
+                  }
+
+                  undo.push(
+                          makeSnapshot()
+                  );
+
+                  redo.clear();
+
+                  int width =
+                          baseBitmap.getWidth();
+
+                  int height =
+                          baseBitmap.getHeight();
+
+                  int side =
+                          Math.min(width,height);
+
+                  int left =
+                          (width-side)/2;
+
+                  int top =
+                          (height-side)/2;
+
+                  Bitmap old =
+                          baseBitmap;
+
+                  baseBitmap =
+                          Bitmap.createBitmap(
+                                  old,
+                                  left,
+                                  top,
+                                  side,
+                                  side
+                          );
+
+                  if(old != baseBitmap &&
+                          !old.isRecycled()) {
+                      old.recycle();
+                  }
+
+                  schedulePreview();
+              }
+
+              private void showBefore() {
+
+                  if(baseBitmap == null) {
+                      return;
+                  }
+
+                  preview.setImageBitmap(
+                          baseBitmap
+                  );
+
+                  handler.postDelayed(
+                          () -> {
+
+                              if(renderedBitmap != null &&
+                                      !renderedBitmap.isRecycled()) {
+
+                                  preview.setImageBitmap(
+                                          renderedBitmap
+                                  );
+                              }
+
+                          },
+                          1200
+                  );
+              }
+
+              private void savePhoto() {
+
+                  if(baseBitmap == null) {
+
+                      Toast.makeText(
+                              this,
+                              "Pehle photo choose karo",
+                              Toast.LENGTH_SHORT
+                      ).show();
+
+                      return;
+                  }
+
+                  final Bitmap source =
+                          baseBitmap;
+
+                  final float[] values =
+                          adjust.clone();
+
+                  final int selectedFilter =
+                          filter;
+
+                  final int selectedIntensity =
+                          filterIntensity;
+
+                  Toast.makeText(
+                          this,
+                          "Saving...",
+                          Toast.LENGTH_SHORT
+                  ).show();
+
+                  executor.submit(() -> {
+
+                      Bitmap result =
+                              processBitmap(
+                                      source,
+                                      values,
+                                      selectedFilter,
+                                      selectedIntensity
+                              );
+
+                      if(result == null) {
+                          return;
+                      }
+
+                      try {
+
+                          ContentValues valuesToSave =
+                                  new ContentValues();
+
+                          valuesToSave.put(
+                                  MediaStore.Images.Media.DISPLAY_NAME,
+                                  "RCINSTAEDIT_" +
+                                  System.currentTimeMillis() +
+                                  ".jpg"
+                          );
+
+                          valuesToSave.put(
+                                  MediaStore.Images.Media.MIME_TYPE,
+                                  "image/jpeg"
+                          );
+
+                          valuesToSave.put(
+                                  MediaStore.Images.Media.RELATIVE_PATH,
+                                  Environment.DIRECTORY_PICTURES +
+                                  "/RCINSTAEDIT"
+                          );
+
+                          Uri uri =
+                                  getContentResolver()
+                                          .insert(
+                                                  MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                                  valuesToSave
+                                          );
+
+                          if(uri == null) {
+                              throw new Exception();
+                          }
+
+                          OutputStream output =
+                                  getContentResolver()
+                                          .openOutputStream(uri);
+
+                          result.compress(
+                                  Bitmap.CompressFormat.JPEG,
+                                  97,
+                                  output
+                          );
+
+                          output.flush();
+                          output.close();
+
+                          result.recycle();
+
+                          runOnUiThread(
+                                  () -> Toast.makeText(
+                                          this,
+                                          "Saved in Pictures/RCINSTAEDIT",
+                                          Toast.LENGTH_LONG
+                                  ).show()
+                          );
+
+                      } catch(Exception e) {
+
+                          runOnUiThread(
+                                  () -> Toast.makeText(
+                                          this,
+                                          "Save failed",
+                                          Toast.LENGTH_SHORT
+                                  ).show()
+                          );
+                      }
+                  });
+              }
+
+              @Override
+              protected void onDestroy() {
+
+                  handler.removeCallbacksAndMessages(null);
+
+                  if(renderTask != null) {
+                      renderTask.cancel(true);
+                  }
+
+                  executor.shutdownNow();
+
+                  if(renderedBitmap != null &&
+                          renderedBitmap != baseBitmap &&
+                          !renderedBitmap.isRecycled()) {
+
+                      renderedBitmap.recycle();
+                  }
+
+                  if(baseBitmap != null &&
+                          !baseBitmap.isRecycled()) {
+
+                      baseBitmap.recycle();
+                  }
+
+                  super.onDestroy();
+              }
+
+              private static class Snapshot {
+
+                  float[] values;
+
+                  int filter;
+
+                  int intensity;
+              }
+          }
+          EOF
+
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build APK
+        run: |
+          gradle assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCINSTAEDIT-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
